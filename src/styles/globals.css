@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/* ─── Zamani Design System ─────────────────────────────────────────────────── */
+
+@theme {
+  /* Colour palette */
+  --color-bg-primary:   #0a0a0a;
+  --color-bg-secondary: #111111;
+  --color-bg-tertiary:  #1a1a1a;
+  --color-bg-elevated:  #222222;
+  --color-bg-hover:     #2a2a2a;
+
+  --color-border:       #2a2a2a;
+  --color-border-subtle:#1f1f1f;
+
+  --color-text-primary:   #f0f0f0;
+  --color-text-secondary: #a0a0a0;
+  --color-text-muted:     #5a5a5a;
+
+  /* Gold accent — Zamani signature */
+  --color-gold:         #c9a84c;
+  --color-gold-bright:  #e4c26a;
+  --color-gold-dim:     #8a6e2e;
+  --color-gold-subtle:  rgba(201, 168, 76, 0.08);
+
+  /* Market sentiment */
+  --color-up:           #4ade80;
+  --color-down:         #f87171;
+  --color-up-subtle:    rgba(74, 222, 128, 0.08);
+  --color-down-subtle:  rgba(248, 113, 113, 0.08);
+  --color-neutral:      #a0a0a0;
+
+  /* Exchange accent colours (flag-inspired, desaturated) */
+  --color-jse:          #007a4d;   /* South Africa green */
+  --color-ngx:          #008751;   /* Nigeria green */
+  --color-nse:          #bb0000;   /* Kenya red */
+  --color-gse:          #006b3f;   /* Ghana green */
+  --color-zse:          #d4af37;   /* Zimbabwe gold */
+  --color-bse:          #003580;   /* Botswana blue */
+  --color-luse:         #198a00;   /* Zambia green */
+  --color-brvm:         #009a44;   /* BRVM (WAEMU) green */
+
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Spacing */
+  --spacing-panel: 1rem;
+}
+
+/* ─── Base ──────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mono numbers everywhere for financial data */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Scrollbars ────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+/* ─── Utility classes ───────────────────────────────────────────────────────── */
+
+.text-up   { color: var(--color-up); }
+.text-down { color: var(--color-down); }
+.text-gold { color: var(--color-gold); }
+
+.bg-up-subtle   { background-color: var(--color-up-subtle); }
+.bg-down-subtle { background-color: var(--color-down-subtle); }
+.bg-gold-subtle { background-color: var(--color-gold-subtle); }
+
+/* Panel card */
+.panel {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem var(--spacing-panel);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+/* Terminal blink cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
