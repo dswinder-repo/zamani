@@ -141,7 +141,7 @@ export default function StocksTable({ exchangeId, quotes, isLoading, activeSecto
           cursor: pointer;
         }
         .st-row:last-child { border-bottom: none; }
-        .st-row:hover { background: var(--color-bg-hover); }
+        .st-row:hover { background: color-mix(in srgb, var(--color-gold) 8%, var(--color-bg-tertiary)); }
 
         .st-symbol { font-size: 12px; font-weight: 700; color: var(--color-gold); }
         .st-name   { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -152,6 +152,11 @@ export default function StocksTable({ exchangeId, quotes, isLoading, activeSecto
         .st-empty {
           padding: 2rem; text-align: center;
           font-size: 12px; color: var(--color-text-muted);
+        }
+
+        @media (max-width: 500px) {
+          .st-header, .st-row { grid-template-columns: 70px 1fr 80px 70px; }
+          .st-header span:last-child, .st-row span:last-child { display: none; }
         }
       `}</style>
     </div>

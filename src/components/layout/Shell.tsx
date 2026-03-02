@@ -12,29 +12,40 @@ interface ShellProps {
 
 export default function Shell({ children }: ShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const { isOpen, open, close } = useCommandPalette()
 
-  // Mount alert watcher once at shell level
   useAlertWatcher()
 
   return (
     <div className="shell">
-      <Topbar onSearch={open} />
+      <Topbar onSearch={open} onMenuToggle={() => setMobileSidebarOpen(v => !v)} />
       <TickerStrip />
       <div className="shell-body">
-        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
-        <main className="shell-main">{children}</main>
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(c => !c)}
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={() => setMobileSidebarOpen(false)}
+        />
+        <main className="shell-main" onClick={() => mobileSidebarOpen && setMobileSidebarOpen(false)}>
+          {children}
+        </main>
       </div>
       {isOpen && <CommandPalette onClose={close} />}
 
       <style>{`
         .shell {
           display: flex; flex-direction: column;
-          height: 100vh; overflow: hidden;
+          height: 100dvh; overflow: hidden;
           background: var(--color-bg-primary);
         }
         .shell-body { display: flex; flex: 1; overflow: hidden; }
         .shell-main { flex: 1; overflow-y: auto; padding: 1rem; }
+
+        @media (max-width: 768px) {
+          .shell-main { padding: 0.75rem; }
+        }
       `}</style>
     </div>
   )

@@ -222,9 +222,18 @@ export default function Exchange() {
       <style>{`
         .exchange-page { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1200px; }
 
+        /* A 2px flag-colour gradient line runs across the very top of the header */
+        .ex-header::before {
+          content: '';
+          position: absolute; top: 0; left: 0; right: 0; height: 2px;
+          background: var(--color-gold);
+          opacity: 0.8;
+        }
+
         .ex-header {
           padding: 1rem 1.25rem; position: relative; overflow: hidden;
           border-left: 3px solid transparent;
+          background: color-mix(in srgb, var(--color-gold) 4%, var(--color-bg-secondary));
         }
         .ex-header-left { display: flex; align-items: center; gap: 1rem; }
         .ex-flag   { font-size: 32px; line-height: 1; flex-shrink: 0; }
@@ -241,9 +250,16 @@ export default function Exchange() {
 
         .ex-loading { font-size: 12px; color: var(--color-text-muted); margin: 0; }
 
+        /* Section labels on exchange pages get a country-colour left tick */
         .section-label {
           font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
           color: var(--color-text-muted); font-weight: 600; margin-bottom: 0.5rem;
+          display: flex; align-items: center; gap: 0.375rem;
+        }
+        .section-label::before {
+          content: '';
+          display: inline-block; width: 2px; height: 10px;
+          background: var(--color-gold); border-radius: 1px; flex-shrink: 0;
         }
 
         /* Sector filter tabs */
@@ -297,7 +313,16 @@ export default function Exchange() {
         .ex-stocks-col { min-width: 0; }
 
         @media (max-width: 900px) {
-          .ex-cols { grid-template-columns: 1fr; }
+          .ex-cols { grid-template-columns: 1fr; gap: 1rem; }
+          .exchange-page { gap: 1rem; }
+          .ex-name { font-size: 15px; }
+          .ex-flag { font-size: 24px; }
+        }
+
+        @media (max-width: 560px) {
+          .ex-sector-filters { gap: 3px; }
+          .ex-sector-btn { padding: 2px 7px; font-size: 9px; }
+          .hm-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
         }
       `}</style>
     </div>

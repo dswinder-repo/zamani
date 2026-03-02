@@ -30,15 +30,15 @@
   --color-down-subtle:  rgba(248, 113, 113, 0.08);
   --color-neutral:      #a0a0a0;
 
-  /* Exchange accent colours (flag-inspired, desaturated) */
-  --color-jse:          #007a4d;   /* South Africa green */
-  --color-ngx:          #008751;   /* Nigeria green */
-  --color-nse:          #bb0000;   /* Kenya red */
-  --color-gse:          #006b3f;   /* Ghana green */
-  --color-zse:          #d4af37;   /* Zimbabwe gold */
-  --color-bse:          #003580;   /* Botswana blue */
-  --color-luse:         #198a00;   /* Zambia green */
-  --color-brvm:         #009a44;   /* BRVM (WAEMU) green */
+  /* Exchange accent colours — flag-authentic, visually distinct from each other */
+  --color-jse:          #C4973B;   /* JSE  – South Africa: warm amber gold (flag gold stripe) */
+  --color-ngx:          #008751;   /* NGX  – Nigeria: national green (authentic) */
+  --color-nse:          #BB0000;   /* NSE  – Kenya: Maasai red */
+  --color-gse:          #FCD116;   /* GSE  – Ghana: flag gold-yellow */
+  --color-brvm:         #F47920;   /* BRVM – West Africa / Ivory Coast: orange */
+  --color-zse:          #41B6E6;   /* ZSE  – Zimbabwe: light sky blue (from flag) */
+  --color-bse:          #75AADB;   /* BSE  – Botswana: cerulean blue */
+  --color-luse:         #DE7A22;   /* LUSE – Zambia: copper orange */
 
   /* Typography */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -115,6 +115,13 @@ body {
 
 .cursor-blink {
   animation: blink 1s step-end infinite;
+}
+
+/* ─── Skeleton shimmer ──────────────────────────────────────────────────────── */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
 }
 
 /* ─── Price flash animation ─────────────────────────────────────────────────── */

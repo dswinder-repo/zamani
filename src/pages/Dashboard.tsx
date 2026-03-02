@@ -179,7 +179,11 @@ export default function Dashboard() {
           .dash-grid-3 { grid-template-columns: 1fr 1fr; }
         }
         @media (max-width: 700px) {
-          .dash-grid-3 { grid-template-columns: 1fr; }
+          .dash-grid-3 { grid-template-columns: 1fr; gap: 1rem; }
+          .dash-title     { font-size: 16px; }
+          .dash-subtitle  { display: none; }
+          .dash-sentiment { gap: 0.5rem; }
+          .dashboard      { gap: 1rem; }
         }
       `}</style>
     </div>
