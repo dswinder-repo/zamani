@@ -2,7 +2,7 @@
  * Mock provider — deterministic fake data for dev/demo.
  * Returns plausible African market data so the UI looks real.
  */
-import type { MarketProvider, OHLCV, IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from './types'
+import type { MarketProvider, Quote, OHLCV, IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from './types'
 
 function seed(s: string) {
   let h = 0
@@ -91,6 +91,82 @@ const LOSERS: Mover[] = [
 
 async function delay(ms = 200) { return new Promise(r => setTimeout(r, ms)) }
 
+interface StockDef { symbol: string; name: string; basePrice: number; currency: string }
+
+const EXCHANGE_STOCKS: Record<string, StockDef[]> = {
+  JSE: [
+    { symbol: 'NPN',   name: 'Naspers',              basePrice: 3_400,  currency: 'ZAR' },
+    { symbol: 'MTN',   name: 'MTN Group',             basePrice: 145,    currency: 'ZAR' },
+    { symbol: 'AGL',   name: 'Anglo American',        basePrice: 495,    currency: 'ZAR' },
+    { symbol: 'SOL',   name: 'Sasol',                 basePrice: 110,    currency: 'ZAR' },
+    { symbol: 'SBK',   name: 'Standard Bank',         basePrice: 195,    currency: 'ZAR' },
+    { symbol: 'FSR',   name: 'FirstRand',             basePrice: 75,     currency: 'ZAR' },
+    { symbol: 'VOD',   name: 'Vodacom Group',         basePrice: 105,    currency: 'ZAR' },
+    { symbol: 'BID',   name: 'Bid Corporation',       basePrice: 310,    currency: 'ZAR' },
+    { symbol: 'CPI',   name: 'Capitec Bank',          basePrice: 2_250,  currency: 'ZAR' },
+    { symbol: 'ABG',   name: 'Absa Group',            basePrice: 190,    currency: 'ZAR' },
+    { symbol: 'INL',   name: 'Investec',              basePrice: 105,    currency: 'ZAR' },
+    { symbol: 'REM',   name: 'Remgro',                basePrice: 145,    currency: 'ZAR' },
+    { symbol: 'DSY',   name: 'Discovery',             basePrice: 175,    currency: 'ZAR' },
+    { symbol: 'SHP',   name: 'Shoprite Holdings',     basePrice: 280,    currency: 'ZAR' },
+    { symbol: 'MNP',   name: 'Mondi',                 basePrice: 330,    currency: 'ZAR' },
+  ],
+  NGX: [
+    { symbol: 'DANGCEM', name: 'Dangote Cement',      basePrice: 548,    currency: 'NGN' },
+    { symbol: 'GTCO',    name: 'Guaranty Trust',      basePrice: 54,     currency: 'NGN' },
+    { symbol: 'ZENITH',  name: 'Zenith Bank',         basePrice: 39,     currency: 'NGN' },
+    { symbol: 'ACCESS',  name: 'Access Holdings',     basePrice: 20,     currency: 'NGN' },
+    { symbol: 'UBA',     name: 'United Bank for Africa', basePrice: 28,  currency: 'NGN' },
+    { symbol: 'STERLNB', name: 'Sterling Bank',       basePrice: 5,      currency: 'NGN' },
+    { symbol: 'FBNH',    name: 'FBN Holdings',        basePrice: 27,     currency: 'NGN' },
+    { symbol: 'MTNN',    name: 'MTN Nigeria',         basePrice: 270,    currency: 'NGN' },
+    { symbol: 'AIRTELAFRI', name: 'Airtel Africa',    basePrice: 2_100,  currency: 'NGN' },
+    { symbol: 'NESTLE',  name: 'Nestlé Nigeria',      basePrice: 1_400,  currency: 'NGN' },
+  ],
+  NSE: [
+    { symbol: 'SCOM',    name: 'Safaricom',           basePrice: 43,     currency: 'KES' },
+    { symbol: 'EQTY',    name: 'Equity Group',        basePrice: 49,     currency: 'KES' },
+    { symbol: 'KCB',     name: 'KCB Group',           basePrice: 36,     currency: 'KES' },
+    { symbol: 'COOP',    name: 'Co-op Bank Kenya',    basePrice: 15,     currency: 'KES' },
+    { symbol: 'DTK',     name: 'Diamond Trust Bank',  basePrice: 56,     currency: 'KES' },
+    { symbol: 'ABSA',    name: 'ABSA Bank Kenya',     basePrice: 13,     currency: 'KES' },
+    { symbol: 'BAMB',    name: 'Bamburi Cement',      basePrice: 55,     currency: 'KES' },
+    { symbol: 'SBIC',    name: 'Stanbic Holdings',    basePrice: 108,    currency: 'KES' },
+  ],
+  GSE: [
+    { symbol: 'MTN',     name: 'MTN Ghana',           basePrice: 2.2,    currency: 'GHS' },
+    { symbol: 'GCB',     name: 'GCB Bank',            basePrice: 5.8,    currency: 'GHS' },
+    { symbol: 'GGBL',    name: 'Guinness Ghana',      basePrice: 2.4,    currency: 'GHS' },
+    { symbol: 'TOTAL',   name: 'TotalEnergies Ghana', basePrice: 4.1,    currency: 'GHS' },
+    { symbol: 'CAL',     name: 'CAL Bank',            basePrice: 0.88,   currency: 'GHS' },
+    { symbol: 'EGL',     name: 'Enterprise Group',    basePrice: 1.9,    currency: 'GHS' },
+  ],
+  BRVM: [
+    { symbol: 'ONTBF',   name: 'Onatel Burkina Faso', basePrice: 4_600,  currency: 'XOF' },
+    { symbol: 'SNTS',    name: 'Sonatel Senegal',     basePrice: 17_000, currency: 'XOF' },
+    { symbol: 'BOABF',   name: 'Banque de l\'Afrique Occidentale', basePrice: 5_200, currency: 'XOF' },
+    { symbol: 'ETIT',    name: 'Ecobank Transnational', basePrice: 18,   currency: 'XOF' },
+  ],
+  ZSE: [
+    { symbol: 'DELTA',   name: 'Delta Corporation',   basePrice: 2_850,  currency: 'USD' },
+    { symbol: 'INNSCOR', name: 'Innscor Africa',      basePrice: 5_100,  currency: 'USD' },
+    { symbol: 'ECONET',  name: 'Econet Wireless',     basePrice: 4_200,  currency: 'USD' },
+    { symbol: 'CBZ',     name: 'CBZ Holdings',        basePrice: 920,    currency: 'USD' },
+  ],
+  BSE: [
+    { symbol: 'FNBB',    name: 'First National Bank BW', basePrice: 3.5, currency: 'BWP' },
+    { symbol: 'BIHL',    name: 'Botswana Insurance', basePrice: 2.8,     currency: 'BWP' },
+    { symbol: 'LETSHEGO', name: 'Letshego Holdings', basePrice: 1.4,     currency: 'BWP' },
+    { symbol: 'SEFALANA', name: 'Sefalana Holdings', basePrice: 11,      currency: 'BWP' },
+  ],
+  LUSE: [
+    { symbol: 'ZCCM',    name: 'ZCCM Investments',   basePrice: 42,     currency: 'ZMW' },
+    { symbol: 'ZANACO',  name: 'Zambia National Bank', basePrice: 2.8,  currency: 'ZMW' },
+    { symbol: 'BATA',    name: 'Bata Shoe Company',   basePrice: 9.5,   currency: 'ZMW' },
+    { symbol: 'REIZ',    name: 'Real Estate Investments Zambia', basePrice: 1.1, currency: 'ZMW' },
+  ],
+}
+
 export const mockProvider: MarketProvider = {
   name: 'mock',
 
@@ -151,5 +227,26 @@ export const mockProvider: MarketProvider = {
   async getTopMovers() {
     await delay()
     return { gainers: GAINERS, losers: LOSERS }
+  },
+
+  async getExchangeStocks(exchange) {
+    await delay(300)
+    const ex = exchange.toUpperCase()
+    const pool = EXCHANGE_STOCKS[ex] ?? []
+    return pool.map((s): Quote => {
+      const pct  = mockChange(s.symbol)
+      const price = mockPrice(s.symbol, s.basePrice)
+      return {
+        symbol:    s.symbol,
+        name:      s.name,
+        price,
+        change:    +(price * pct / 100).toFixed(3),
+        changePct: pct,
+        volume:    Math.floor(rng(seed(s.symbol + 'vol'))() * 10_000_000),
+        currency:  s.currency,
+        exchange:  ex,
+        timestamp: Date.now(),
+      }
+    })
   },
 }

@@ -84,4 +84,5 @@ export interface MarketProvider {
   getNews?(query: string): Promise<NewsItem[]>
   getCommodities?(): Promise<Commodity[]>
   getTopMovers?(exchange: string): Promise<{ gainers: Mover[]; losers: Mover[] }>
+  getExchangeStocks?(exchange: string): Promise<Quote[]>
 }

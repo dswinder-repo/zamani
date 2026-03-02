@@ -1,6 +1,7 @@
 import { Search, Bell, Settings } from 'lucide-react'
 import NdebeleStrip from '../patterns/NdebeleStrip'
 import Clock from './Clock'
+import MarketStatus from './MarketStatus'
 
 interface TopbarProps {
   onSearch: () => void
@@ -28,6 +29,8 @@ export default function Topbar({ onSearch }: TopbarProps) {
 
         {/* Right cluster */}
         <div className="topbar-right">
+          <MarketStatus />
+          <div className="topbar-divider" />
           <Clock />
           <button className="icon-btn" aria-label="Notifications">
             <Bell size={14} />
@@ -89,8 +92,12 @@ export default function Topbar({ onSearch }: TopbarProps) {
         .topbar-right {
           display: flex;
           align-items: center;
-          gap: 0.25rem;
+          gap: 0.5rem;
           margin-left: auto;
+        }
+        .topbar-divider {
+          width: 1px; height: 16px;
+          background: var(--color-border);
         }
 
         .icon-btn {
