@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Bell, BellOff, PlusCircle, Trash2, CheckCircle } from 'lucide-react'
-import { useAlerts, type AlertCondition } from '../stores/alerts'
+import { useAlerts, type AlertCondition, type PriceAlert } from '../stores/alerts'
 
 const CONDITION_LABELS: Record<AlertCondition, string> = {
   above:       'Price above',
@@ -242,7 +242,7 @@ export default function Alerts() {
 }
 
 function AlertRow({ alert, onRemove, onToggle }: {
-  alert: ReturnType<typeof useAlerts>['alerts'][0]
+  alert: PriceAlert
   onRemove: (id: string) => void
   onToggle: (id: string) => void
 }) {

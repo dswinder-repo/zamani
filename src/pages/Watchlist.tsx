@@ -104,10 +104,10 @@ export default function Watchlist() {
                     {quote && (
                       <div className="wl-card-spark">
                         <Sparkline
-                          values={Array.from({ length: 20 }, (_, i) =>
+                          data={Array.from({ length: 20 }, (_, i) =>
                             quote.price * (1 + (Math.sin(i * 0.8 + quote.price) * 0.02))
                           )}
-                          color={up ? 'var(--color-up)' : 'var(--color-down)'}
+                          up={up}
                           width={70} height={32}
                         />
                       </div>

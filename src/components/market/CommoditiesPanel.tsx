@@ -6,7 +6,7 @@ interface Props {
 
 const fmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-function formatPrice(price: number, unit: string): string {
+function formatPrice(price: number): string {
   if (price >= 1_000) {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(price)
   }
@@ -20,7 +20,7 @@ export default function CommoditiesPanel({ items }: Props) {
         <div key={c.id} className="comm-row">
           <div className="comm-name">{c.name}</div>
           <div className="comm-unit">/{c.unit}</div>
-          <div className="comm-price">${formatPrice(c.price, c.unit)}</div>
+          <div className="comm-price">${formatPrice(c.price)}</div>
           <div className={`comm-chg ${c.changePct >= 0 ? 'up' : 'down'}`}>
             {c.changePct >= 0 ? '+' : ''}{c.changePct.toFixed(2)}%
           </div>

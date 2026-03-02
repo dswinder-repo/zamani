@@ -19,49 +19,6 @@ function fmtPrice(v: number, currency: string) {
   return `${currency} ${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-// Recharts doesn't have a native candle renderer — we use a custom Bar shape.
-function CandleShape(props: {
-  x?: number; y?: number; width?: number; height?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload?: any
-}) {
-  const { x = 0, y = 0, width = 0, payload } = props
-  if (!payload) return null
-
-  const { open, close, high, low } = payload
-  const isUp    = close >= open
-  const color   = isUp ? 'var(--color-up)' : 'var(--color-down)'
-  const bodyTop    = Math.min(open, close)
-  const bodyBottom = Math.max(open, close)
-
-  // We need the chart's y-scale, which recharts passes via the data domain.
-  // Since we're using stacked bars for the range, use the provided y/height for the body.
-  // Wick is drawn as a thin line from low to high through the body center.
-  const cx = x + width / 2
-
-  return (
-    <g>
-      {/* Wick */}
-      <line
-        x1={cx} y1={y} x2={cx} y2={y + (props.height ?? 0)}
-        stroke={color} strokeWidth={1}
-      />
-      {/* Body — drawn relative to chart space */}
-      <rect
-        x={x + 1}
-        y={y}
-        width={Math.max(width - 2, 1)}
-        height={props.height ?? 1}
-        fill={isUp ? 'var(--color-up)' : 'var(--color-down)'}
-        fillOpacity={isUp ? 0.85 : 0.85}
-        rx={1}
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        {...{ bodyTop, bodyBottom, high, low }}
-      />
-    </g>
-  )
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, currency = 'USD' }: any) {
   if (!active || !payload?.length) return null

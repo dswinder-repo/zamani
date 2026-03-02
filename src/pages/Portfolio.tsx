@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
-import { PlusCircle, Trash2, TrendingUp, TrendingDown, Briefcase } from 'lucide-react'
+import { PlusCircle, Trash2, Briefcase } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { usePortfolio, type Transaction } from '../stores/portfolio'
 import { provider } from '../services/api'
@@ -252,7 +252,7 @@ export default function Portfolio() {
               <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}
                 tickLine={false} axisLine={false} width={60} orientation="right"
                 tickFormatter={v => v.toLocaleString('en-US', { notation: 'compact' })} />
-              <Tooltip formatter={(v: number) => [v.toLocaleString('en-US', { minimumFractionDigits: 2 }), 'Value']}
+              <Tooltip formatter={(v: number | undefined) => [(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 }), 'Value']}
                 contentStyle={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', borderRadius: 4, fontSize: 11 }} />
               <Area type="monotone" dataKey="value" stroke="var(--color-gold)" strokeWidth={1.5}
                 fill="url(#portGrad)" dot={false} isAnimationActive={false} />

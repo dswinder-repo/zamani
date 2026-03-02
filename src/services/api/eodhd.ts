@@ -7,7 +7,7 @@
  *
  * Symbol format: "NPN.JSE", "SCOM.NSE", "MTN.JSE"
  */
-import type { MarketProvider, Quote, OHLCV, IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from './types'
+import type { MarketProvider, Quote, OHLCV, IndexSnapshot, ForexRate, NewsItem, Mover } from './types'
 
 const BASE = 'https://eodhd.com/api'
 const KEY  = import.meta.env.VITE_EODHD_KEY as string

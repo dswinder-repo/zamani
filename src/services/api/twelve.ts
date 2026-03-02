@@ -148,7 +148,7 @@ export const twelveDataProvider: MarketProvider = {
     })
   },
 
-  async getNews(query = 'africa markets') {
+  async getNews(_query = 'africa markets') {
     // Twelve Data doesn't provide news — return empty, fall back to mock or another source
     console.warn('Twelve Data does not provide news. Wire in a news API (e.g. NewsAPI) for live headlines.')
     return [] as NewsItem[]
