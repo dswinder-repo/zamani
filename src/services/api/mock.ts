@@ -2,7 +2,7 @@
  * Mock provider — deterministic fake data for dev/demo.
  * Returns plausible African market data so the UI looks real.
  */
-import type { MarketProvider, OHLCV, IndexSnapshot, ForexRate, NewsItem } from './types'
+import type { MarketProvider, OHLCV, IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from './types'
 
 function seed(s: string) {
   let h = 0
@@ -60,6 +60,35 @@ const NEWS: NewsItem[] = [
   { id: '6', headline: 'BRVM composite reaches 18-month high amid regional growth optimism', source: 'Ecofin', url: '#', publishedAt: Date.now() - 14_400_000, exchange: 'BRVM' },
 ]
 
+const COMMODITIES: Commodity[] = [
+  { id: 'gold',     name: 'Gold',        price: 2_341.80, change: 12.40,  changePct: 0.53,  unit: 'oz',  currency: 'USD', timestamp: Date.now() },
+  { id: 'silver',   name: 'Silver',      price: 29.42,    change: 0.18,   changePct: 0.61,  unit: 'oz',  currency: 'USD', timestamp: Date.now() },
+  { id: 'platinum', name: 'Platinum',    price: 987.50,   change: -4.20,  changePct: -0.42, unit: 'oz',  currency: 'USD', timestamp: Date.now() },
+  { id: 'palladium',name: 'Palladium',   price: 1_023.00, change: 8.50,   changePct: 0.84,  unit: 'oz',  currency: 'USD', timestamp: Date.now() },
+  { id: 'brent',    name: 'Brent Crude', price: 78.24,    change: -1.16,  changePct: -1.46, unit: 'bbl', currency: 'USD', timestamp: Date.now() },
+  { id: 'wti',      name: 'WTI Crude',   price: 74.38,    change: -1.02,  changePct: -1.35, unit: 'bbl', currency: 'USD', timestamp: Date.now() },
+  { id: 'cocoa',    name: 'Cocoa',       price: 8_452,    change: 210,    changePct: 2.55,  unit: 'MT',  currency: 'USD', timestamp: Date.now() },
+  { id: 'coffee',   name: 'Coffee',      price: 4.82,     change: 0.14,   changePct: 2.99,  unit: 'lb',  currency: 'USD', timestamp: Date.now() },
+  { id: 'copper',   name: 'Copper',      price: 4.52,     change: 0.03,   changePct: 0.67,  unit: 'lb',  currency: 'USD', timestamp: Date.now() },
+  { id: 'palmoil',  name: 'Palm Oil',    price: 3_820,    change: -45,    changePct: -1.16, unit: 'MT',  currency: 'USD', timestamp: Date.now() },
+]
+
+const GAINERS: Mover[] = [
+  { symbol: 'SCOM',   name: 'Safaricom',       exchange: 'NSE',  price: 42.50,  changePct: 4.17 },
+  { symbol: 'MTN',    name: 'MTN Group',        exchange: 'JSE',  price: 142.80, changePct: 3.12 },
+  { symbol: 'EQTY',   name: 'Equity Group',     exchange: 'NSE',  price: 48.75,  changePct: 2.82 },
+  { symbol: 'CIB',    name: 'CIB Egypt',        exchange: 'EGX',  price: 86.40,  changePct: 2.15 },
+  { symbol: 'ZENITH', name: 'Zenith Bank',      exchange: 'NGX',  price: 38.60,  changePct: 1.84 },
+]
+
+const LOSERS: Mover[] = [
+  { symbol: 'DAN',    name: 'Dangote Cement',   exchange: 'NGX',  price: 548.00, changePct: -2.84 },
+  { symbol: 'NPN',    name: 'Naspers',          exchange: 'JSE',  price: 3_412,  changePct: -1.92 },
+  { symbol: 'SBIC',   name: 'Stanbic Holdings', exchange: 'NSE',  price: 108.00, changePct: -0.92 },
+  { symbol: 'AGL',    name: 'Anglo American',   exchange: 'JSE',  price: 492.30, changePct: -0.74 },
+  { symbol: 'ACCESS', name: 'Access Holdings',  exchange: 'NGX',  price: 20.15,  changePct: -0.49 },
+]
+
 async function delay(ms = 200) { return new Promise(r => setTimeout(r, ms)) }
 
 export const mockProvider: MarketProvider = {
@@ -112,5 +141,15 @@ export const mockProvider: MarketProvider = {
   async getNews() {
     await delay(300)
     return NEWS
+  },
+
+  async getCommodities() {
+    await delay()
+    return COMMODITIES
+  },
+
+  async getTopMovers() {
+    await delay()
+    return { gainers: GAINERS, losers: LOSERS }
   },
 }

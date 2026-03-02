@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import Topbar from './Topbar'
 import Sidebar from './Sidebar'
+import TickerStrip from './TickerStrip'
 import CommandPalette from '../search/CommandPalette'
 import { useCommandPalette } from '../../hooks/useCommandPalette'
 
@@ -15,6 +16,7 @@ export default function Shell({ children }: ShellProps) {
   return (
     <div className="shell">
       <Topbar onSearch={open} />
+      <TickerStrip />
       <div className="shell-body">
         <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
         <main className="shell-main">{children}</main>

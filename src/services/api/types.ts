@@ -54,6 +54,26 @@ export interface NewsItem {
   summary?:  string
 }
 
+export interface Commodity {
+  id:        string       // e.g. "gold"
+  name:      string       // e.g. "Gold"
+  price:     number
+  change:    number
+  changePct: number
+  unit:      string       // e.g. "oz", "bbl", "MT"
+  currency:  string       // always USD for commodities
+  timestamp: number
+}
+
+export interface Mover {
+  symbol:    string
+  name:      string
+  exchange:  string
+  price:     number
+  changePct: number
+  volume?:   number
+}
+
 /** Abstract provider interface — all adapters implement this */
 export interface MarketProvider {
   name: string
@@ -62,4 +82,6 @@ export interface MarketProvider {
   getIndices?(exchange: string): Promise<IndexSnapshot[]>
   getForex?(pairs: string[]): Promise<ForexRate[]>
   getNews?(query: string): Promise<NewsItem[]>
+  getCommodities?(): Promise<Commodity[]>
+  getTopMovers?(exchange: string): Promise<{ gainers: Mover[]; losers: Mover[] }>
 }

@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { provider } from '../services/api'
-import type { IndexSnapshot, ForexRate, NewsItem } from '../services/api'
+import type { IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from '../services/api'
 import IndexCard from '../components/market/IndexCard'
 import ForexTable from '../components/market/ForexTable'
 import NewsFeed from '../components/news/NewsFeed'
+import TopMovers from '../components/market/TopMovers'
+import CommoditiesPanel from '../components/market/CommoditiesPanel'
+import WatchlistPanel from '../components/watchlist/WatchlistPanel'
 import NdebelePanel from '../components/patterns/NdebelePanel'
 
 export default function Dashboard() {
@@ -24,6 +27,18 @@ export default function Dashboard() {
     queryKey: ['news', 'dashboard'],
     queryFn: () => provider.getNews?.('africa') ?? Promise.resolve([]),
     staleTime: 5 * 60_000,
+  })
+
+  const { data: commodities, isLoading: loadingComm } = useQuery<Commodity[]>({
+    queryKey: ['commodities'],
+    queryFn: () => provider.getCommodities?.() ?? Promise.resolve([]),
+    staleTime: 60_000,
+  })
+
+  const { data: movers, isLoading: loadingMovers } = useQuery<{ gainers: Mover[]; losers: Mover[] }>({
+    queryKey: ['movers', 'all'],
+    queryFn: () => provider.getTopMovers?.('all') ?? Promise.resolve({ gainers: [], losers: [] }),
+    staleTime: 60_000,
   })
 
   const upCount   = indices?.filter(i => i.changePct >= 0).length ?? 0
@@ -68,17 +83,45 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* Main grid: forex + news */}
-      <div className="dash-grid">
-        <section className="dash-section">
-          <div className="section-label">Forex Rates</div>
-          {loadingFx ? <Skeleton height={200} /> : <ForexTable rates={forex ?? []} />}
-        </section>
+      {/* Main 3-column grid */}
+      <div className="dash-grid-3">
 
-        <section className="dash-section">
-          <div className="section-label">Latest News</div>
-          {loadingNews ? <Skeleton height={200} /> : <NewsFeed items={news ?? []} />}
-        </section>
+        {/* Col 1: Top Movers + Watchlist */}
+        <div className="dash-col">
+          <section className="dash-section">
+            <div className="section-label">Top Movers</div>
+            {loadingMovers
+              ? <Skeleton height={180} />
+              : <TopMovers gainers={movers?.gainers ?? []} losers={movers?.losers ?? []} />}
+          </section>
+
+          <section className="dash-section">
+            <div className="section-label">Watchlist</div>
+            <WatchlistPanel />
+          </section>
+        </div>
+
+        {/* Col 2: Forex + Commodities */}
+        <div className="dash-col">
+          <section className="dash-section">
+            <div className="section-label">Forex Rates</div>
+            {loadingFx ? <Skeleton height={180} /> : <ForexTable rates={forex ?? []} />}
+          </section>
+
+          <section className="dash-section">
+            <div className="section-label">Commodities</div>
+            {loadingComm ? <Skeleton height={200} /> : <CommoditiesPanel items={commodities ?? []} />}
+          </section>
+        </div>
+
+        {/* Col 3: News */}
+        <div className="dash-col">
+          <section className="dash-section">
+            <div className="section-label">Latest News</div>
+            {loadingNews ? <Skeleton height={400} /> : <NewsFeed items={news ?? []} />}
+          </section>
+        </div>
+
       </div>
 
       <style>{`
@@ -118,13 +161,26 @@ export default function Dashboard() {
         }
         .idx-strip > * { flex-shrink: 0; width: 160px; }
 
-        .dash-grid {
+        /* 3-column main grid */
+        .dash-grid-3 {
           display: grid;
-          grid-template-columns: 1fr 1.5fr;
+          grid-template-columns: 1fr 1fr 1.2fr;
           gap: 1.5rem;
           align-items: start;
         }
-        @media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; } }
+
+        .dash-col {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        @media (max-width: 1100px) {
+          .dash-grid-3 { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 700px) {
+          .dash-grid-3 { grid-template-columns: 1fr; }
+        }
       `}</style>
     </div>
   )
