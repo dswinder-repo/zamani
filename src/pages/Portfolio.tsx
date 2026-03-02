@@ -344,6 +344,44 @@ export default function Portfolio() {
         </div>
       )}
 
+      {/* Currency breakdown */}
+      {enriched.length > 0 && (() => {
+        const byCurrency = new Map<string, { value: number; cost: number; count: number }>()
+        for (const h of enriched) {
+          const cur = h.currency || 'USD'
+          const prev = byCurrency.get(cur) ?? { value: 0, cost: 0, count: 0 }
+          byCurrency.set(cur, { value: prev.value + h.currentValue, cost: prev.cost + h.totalCost, count: prev.count + 1 })
+        }
+        const entries = [...byCurrency.entries()].sort((a, b) => b[1].value - a[1].value)
+        if (entries.length <= 1) return null
+        return (
+          <div>
+            <div className="section-label" style={{ padding: 0 }}>By Currency</div>
+            <div className="port-currency-grid">
+              {entries.map(([cur, { value, cost, count }]) => {
+                const pnl = value - cost
+                const pct = cost > 0 ? (pnl / cost) * 100 : 0
+                const up  = pnl >= 0
+                return (
+                  <div key={cur} className="port-cur-card panel">
+                    <div className="port-cur-header">
+                      <span className="port-cur-code num">{cur}</span>
+                      <span className="port-cur-count">{count} holding{count !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="port-cur-value num">
+                      {value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className={`port-cur-pnl num ${up ? 'text-up' : 'text-down'}`}>
+                      {up ? '+' : ''}{pnl.toFixed(2)} ({up ? '+' : ''}{pct.toFixed(2)}%)
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
       {showAdd && (
         <AddTxModal onClose={() => setShowAdd(false)} onAdd={addTransaction} />
       )}
@@ -424,6 +462,15 @@ export default function Portfolio() {
           transition: all 0.1s;
         }
         .pt-del:hover { color: var(--color-down); background: var(--color-down-subtle); }
+
+        /* Currency breakdown */
+        .port-currency-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.5rem; }
+        .port-cur-card { padding: 0.625rem 0.875rem; }
+        .port-cur-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; }
+        .port-cur-code  { font-size: 13px; font-weight: 800; color: var(--color-gold); }
+        .port-cur-count { font-size: 10px; color: var(--color-text-muted); }
+        .port-cur-value { font-size: 15px; font-weight: 700; color: var(--color-text-primary); margin-bottom: 2px; }
+        .port-cur-pnl   { font-size: 10px; font-weight: 600; }
       `}</style>
     </div>
   )

@@ -34,7 +34,10 @@ export default function MarketStatus() {
 
   return (
     <div className="market-status" title={openExchanges.length ? `Open: ${openExchanges.join(', ')}` : 'All markets closed'}>
-      <span className="ms-dot" style={{ background: openCount > 0 ? 'var(--color-up)' : 'var(--color-text-muted)' }} />
+      <span
+        className={`ms-dot${openCount > 0 ? ' pulse-open' : ''}`}
+        style={{ background: openCount > 0 ? 'var(--color-up)' : 'var(--color-text-muted)' }}
+      />
       <span className="ms-count">
         {openCount > 0 ? `${openCount} open` : 'closed'}
       </span>
@@ -47,7 +50,6 @@ export default function MarketStatus() {
         .ms-dot {
           width: 6px; height: 6px; border-radius: 50%;
           flex-shrink: 0;
-          box-shadow: 0 0 4px currentColor;
         }
         .ms-count {
           font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
@@ -82,7 +84,7 @@ export function ExchangeStatusBadge({ id }: { id: string }) {
         }
         .esb-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
         .ex-status-open   { background: var(--color-up-subtle);   color: var(--color-up);    }
-        .ex-status-open .esb-dot { background: var(--color-up); }
+        .ex-status-open .esb-dot { background: var(--color-up); animation: pulse-ring 2.2s ease-out infinite; }
         .ex-status-pre    { background: rgba(250,204,21,0.1);     color: #facc15; }
         .ex-status-pre .esb-dot  { background: #facc15; }
         .ex-status-post   { background: rgba(251,146,60,0.1);     color: #fb923c; }
@@ -109,7 +111,7 @@ export function MarketStatusGrid() {
         const s = statuses[ex.toLowerCase()] ?? 'closed'
         return (
           <div key={ex} className="ms-grid-item" title={STATUS_LABEL[s]}>
-            <span className="ms-grid-dot" style={{ background: STATUS_COLOR[s] }} />
+            <span className={`ms-grid-dot${s === 'open' ? ' pulse-open' : ''}`} style={{ background: STATUS_COLOR[s] }} />
             <span className="ms-grid-label">{ex}</span>
           </div>
         )

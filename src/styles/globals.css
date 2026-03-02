@@ -116,3 +116,27 @@ body {
 .cursor-blink {
   animation: blink 1s step-end infinite;
 }
+
+/* ─── Price flash animation ─────────────────────────────────────────────────── */
+
+@keyframes flash-up {
+  0%   { background: rgba(74, 222, 128, 0.25); }
+  100% { background: transparent; }
+}
+@keyframes flash-down {
+  0%   { background: rgba(248, 113, 113, 0.25); }
+  100% { background: transparent; }
+}
+
+.flash-up   { animation: flash-up   0.8s ease-out forwards; }
+.flash-down { animation: flash-down 0.8s ease-out forwards; }
+
+/* ─── Pulse ring — open market indicators ───────────────────────────────────── */
+
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
+  70%  { box-shadow: 0 0 0 5px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.pulse-open { animation: pulse-ring 2.2s ease-out infinite; }

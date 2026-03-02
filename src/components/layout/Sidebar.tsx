@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Newspaper, DollarSign, Star,
   BarChart2, ChevronLeft, ChevronRight,
-  Briefcase, Bell, Calendar,
+  Briefcase, Bell, Calendar, GitCompare,
 } from 'lucide-react'
 import { useAlerts } from '../../stores/alerts'
 
@@ -26,6 +26,7 @@ const NAV: { to: string; icon: React.ComponentType<{ size?: number }>; label: st
   { to: '/portfolio', icon: Briefcase,       label: 'Portfolio' },
   { to: '/alerts',    icon: Bell,            label: 'Alerts',   badge: true },
   { to: '/calendar',  icon: Calendar,        label: 'Calendar' },
+  { to: '/compare',   icon: GitCompare,      label: 'Compare' },
 ]
 
 interface SidebarProps {

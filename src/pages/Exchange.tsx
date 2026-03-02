@@ -1,13 +1,18 @@
+import { useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { Bookmark, BookmarkCheck, X } from 'lucide-react'
 import { provider } from '../services/api'
 import type { IndexSnapshot, Quote } from '../services/api'
 import IndexCard from '../components/market/IndexCard'
 import TopMovers from '../components/market/TopMovers'
 import StocksTable from '../components/market/StocksTable'
+import SectorHeatmap from '../components/market/SectorHeatmap'
 import NdebelePanel from '../components/patterns/NdebelePanel'
 import { ExchangeStatusBadge } from '../components/layout/MarketStatus'
 import { getExchangeLocalTime } from '../utils/marketHours'
+import { getSector, SECTOR_ORDER } from '../data/sectors'
+import { useScreener } from '../stores/screener'
 
 const EXCHANGE_INFO: Record<string, {
   name: string; country: string; flag: string
@@ -27,6 +32,10 @@ export default function Exchange() {
   const { id = '' } = useParams()
   const info = EXCHANGE_INFO[id]
   const localTime = getExchangeLocalTime(id)
+
+  const [activeSector, setActiveSector] = useState<string | null>(null)
+  const { presets, savePreset, deletePreset } = useScreener()
+  const exchangePresets = presets.filter(p => p.exchange === id)
 
   const { data: indices, isLoading: indicesLoading } = useQuery<IndexSnapshot[]>({
     queryKey: ['indices', id],
@@ -49,14 +58,41 @@ export default function Exchange() {
     refetchInterval: 60_000,
   })
 
+  // Sectors present on this exchange
+  const availableSectors = useMemo(() => {
+    if (!stocks?.length) return []
+    const set = new Set(stocks.map(s => getSector(id, s.symbol)))
+    return SECTOR_ORDER.filter(s => set.has(s))
+  }, [stocks, id])
+
+  // Filtered stocks based on active sector
+  const filteredStocks = useMemo(() => {
+    if (!activeSector || !stocks) return stocks ?? []
+    return stocks.filter(q => getSector(id, q.symbol) === activeSector)
+  }, [stocks, activeSector, id])
+
   if (!info) return (
     <div style={{ padding: '2rem', color: 'var(--color-text-muted)' }}>Exchange not found.</div>
   )
 
   const exIndices = (indices ?? []).filter(i => i.exchange.toLowerCase() === id)
 
+  // Exchange accent — override CSS gold vars within this subtree
+  const accentStyle = {
+    '--color-gold':        `var(${info.accentVar})`,
+    '--color-gold-dim':    `color-mix(in srgb, var(${info.accentVar}) 55%, #000)`,
+    '--color-gold-bright': `color-mix(in srgb, var(${info.accentVar}) 140%, #fff)`,
+    '--color-gold-subtle': `color-mix(in srgb, var(${info.accentVar}) 10%, transparent)`,
+  } as React.CSSProperties
+
+  function saveCurrentFilter() {
+    if (!activeSector) return
+    const name = `${id.toUpperCase()} — ${activeSector}`
+    savePreset({ name, exchange: id, sectors: [activeSector] })
+  }
+
   return (
-    <div className="exchange-page">
+    <div className="exchange-page" style={accentStyle}>
 
       {/* Header */}
       <div className="ex-header panel" style={{ borderLeftColor: `var(${info.accentVar})` }}>
@@ -94,6 +130,72 @@ export default function Exchange() {
         )}
       </section>
 
+      {/* Sector heatmap */}
+      {(stocks ?? []).length > 0 && (
+        <section>
+          <SectorHeatmap
+            exchangeId={id}
+            quotes={stocks ?? []}
+            activeSector={activeSector}
+            onSectorClick={setActiveSector}
+          />
+        </section>
+      )}
+
+      {/* Sector filter tabs */}
+      {availableSectors.length > 0 && (
+        <div className="ex-sector-filters">
+          <button
+            className={`ex-sector-btn ${!activeSector ? 'active' : ''}`}
+            onClick={() => setActiveSector(null)}
+          >
+            All
+          </button>
+          {availableSectors.map(s => (
+            <button
+              key={s}
+              className={`ex-sector-btn ${activeSector === s ? 'active' : ''}`}
+              onClick={() => setActiveSector(prev => prev === s ? null : s)}
+            >
+              {s}
+            </button>
+          ))}
+
+          {/* Screener preset controls */}
+          {activeSector && (
+            <button
+              className="ex-save-preset-btn"
+              onClick={saveCurrentFilter}
+              title={`Save "${activeSector}" filter as preset`}
+            >
+              <Bookmark size={11} /> Save filter
+            </button>
+          )}
+
+          {exchangePresets.length > 0 && (
+            <div className="ex-presets">
+              {exchangePresets.map(p => (
+                <span
+                  key={p.id}
+                  className={`ex-preset-chip ${activeSector === p.sectors[0] ? 'active' : ''}`}
+                  onClick={() => setActiveSector(prev => prev === p.sectors[0] ? null : p.sectors[0])}
+                >
+                  <BookmarkCheck size={9} />
+                  {p.name.split('—')[1]?.trim() ?? p.name}
+                  <button
+                    className="ex-preset-del"
+                    onClick={e => { e.stopPropagation(); deletePreset(p.id) }}
+                    aria-label="Remove preset"
+                  >
+                    <X size={8} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Two columns: Movers + Stocks table */}
       <div className="ex-cols">
         <section>
@@ -105,8 +207,15 @@ export default function Exchange() {
         </section>
 
         <section className="ex-stocks-col">
-          <div className="section-label">All Securities</div>
-          <StocksTable exchangeId={id} quotes={stocks ?? []} isLoading={stocksLoading} />
+          <div className="section-label">
+            {activeSector ? `${activeSector} Securities` : 'All Securities'}
+          </div>
+          <StocksTable
+            exchangeId={id}
+            quotes={filteredStocks}
+            isLoading={stocksLoading}
+            activeSector={activeSector}
+          />
         </section>
       </div>
 
@@ -136,6 +245,48 @@ export default function Exchange() {
           font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
           color: var(--color-text-muted); font-weight: 600; margin-bottom: 0.5rem;
         }
+
+        /* Sector filter tabs */
+        .ex-sector-filters {
+          display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+        }
+        .ex-sector-btn {
+          padding: 3px 9px; border-radius: 12px; font-size: 10px; font-weight: 600;
+          border: 1px solid var(--color-border); background: none;
+          color: var(--color-text-muted); cursor: pointer; transition: all 0.1s;
+          white-space: nowrap;
+        }
+        .ex-sector-btn:hover  { color: var(--color-text-primary); border-color: var(--color-text-muted); }
+        .ex-sector-btn.active { color: var(--color-gold); border-color: var(--color-gold-dim); background: var(--color-gold-subtle); }
+
+        .ex-save-preset-btn {
+          display: flex; align-items: center; gap: 4px;
+          padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;
+          border: 1px solid var(--color-gold-dim); color: var(--color-gold);
+          background: var(--color-gold-subtle); cursor: pointer;
+          margin-left: 4px; transition: all 0.1s;
+        }
+        .ex-save-preset-btn:hover { background: var(--color-gold-dim); color: var(--color-bg-primary); }
+
+        .ex-presets {
+          display: flex; align-items: center; gap: 4px;
+          border-left: 1px solid var(--color-border-subtle); padding-left: 8px; margin-left: 4px;
+        }
+        .ex-preset-chip {
+          display: inline-flex; align-items: center; gap: 3px;
+          padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: 600;
+          border: 1px solid var(--color-border); color: var(--color-text-muted);
+          background: var(--color-bg-elevated); cursor: pointer; transition: all 0.1s;
+        }
+        .ex-preset-chip:hover, .ex-preset-chip.active {
+          color: var(--color-gold); border-color: var(--color-gold-dim); background: var(--color-gold-subtle);
+        }
+        .ex-preset-del {
+          background: none; border: none; cursor: pointer; color: inherit;
+          display: flex; align-items: center; padding: 0; margin-left: 1px;
+          opacity: 0.6; transition: opacity 0.1s;
+        }
+        .ex-preset-del:hover { opacity: 1; }
 
         .ex-cols {
           display: grid;

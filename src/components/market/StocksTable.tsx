@@ -6,11 +6,13 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import type { Quote } from '../../services/api/types'
+import { useFlash } from '../../hooks/useFlash'
 
 interface StocksTableProps {
-  exchangeId: string
-  quotes:     Quote[]
-  isLoading?: boolean
+  exchangeId:   string
+  quotes:       Quote[]
+  isLoading?:   boolean
+  activeSector?: string | null
 }
 
 function ChangeCell({ pct }: { pct: number }) {
@@ -29,16 +31,42 @@ function ChangeCell({ pct }: { pct: number }) {
   )
 }
 
-export default function StocksTable({ exchangeId, quotes, isLoading }: StocksTableProps) {
+function StockRow({ q, exchangeId }: { q: Quote; exchangeId: string }) {
+  const flash = useFlash(q.price)
+  return (
+    <Link
+      to={`/exchange/${exchangeId}/stock/${encodeURIComponent(q.symbol)}`}
+      className={`st-row ${flash}`}
+    >
+      <span className="st-symbol num">{q.symbol.replace(`.${exchangeId.toUpperCase()}`, '')}</span>
+      <span className="st-name">{q.name}</span>
+      <span className="st-price num st-align-r">
+        {q.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <span style={{ fontSize: 9, color: 'var(--color-text-muted)', marginLeft: 3 }}>{q.currency}</span>
+      </span>
+      <span className="st-align-r"><ChangeCell pct={q.changePct} /></span>
+      <span className="st-vol num st-align-r">
+        {q.volume ? (q.volume / 1_000).toFixed(0) + 'K' : '—'}
+      </span>
+    </Link>
+  )
+}
+
+export default function StocksTable({ exchangeId, quotes, isLoading, activeSector }: StocksTableProps) {
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() =>
-    quotes.filter(q =>
-      !query ||
-      q.symbol.toLowerCase().includes(query.toLowerCase()) ||
-      q.name.toLowerCase().includes(query.toLowerCase())
-    ),
+    quotes.filter(q => {
+      const matchQuery = !query ||
+        q.symbol.toLowerCase().includes(query.toLowerCase()) ||
+        q.name.toLowerCase().includes(query.toLowerCase())
+      return matchQuery
+    }),
   [quotes, query])
+
+  // activeSector filtering happens upstream (Exchange.tsx passes already-filtered quotes)
+  // but we show the sector label in the count
+  const displayCount = filtered.length
 
   return (
     <div className="stocks-table-wrap panel">
@@ -51,7 +79,9 @@ export default function StocksTable({ exchangeId, quotes, isLoading }: StocksTab
           value={query}
           onChange={e => setQuery(e.target.value)}
         />
-        <span className="st-count">{filtered.length} securities</span>
+        <span className="st-count">
+          {displayCount} {activeSector ? `(${activeSector})` : 'securities'}
+        </span>
       </div>
 
       {/* Header */}
@@ -67,25 +97,12 @@ export default function StocksTable({ exchangeId, quotes, isLoading }: StocksTab
       {isLoading ? (
         <div className="st-empty">Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="st-empty">No results for "{query}"</div>
+        <div className="st-empty">
+          {query ? `No results for "${query}"` : 'No securities in this sector'}
+        </div>
       ) : (
         filtered.map(q => (
-          <Link
-            key={q.symbol}
-            to={`/exchange/${exchangeId}/stock/${encodeURIComponent(q.symbol)}`}
-            className="st-row"
-          >
-            <span className="st-symbol num">{q.symbol.replace(`.${exchangeId.toUpperCase()}`, '')}</span>
-            <span className="st-name">{q.name}</span>
-            <span className="st-price num st-align-r">
-              {q.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              <span style={{ fontSize: 9, color: 'var(--color-text-muted)', marginLeft: 3 }}>{q.currency}</span>
-            </span>
-            <span className="st-align-r"><ChangeCell pct={q.changePct} /></span>
-            <span className="st-vol num st-align-r">
-              {q.volume ? (q.volume / 1_000).toFixed(0) + 'K' : '—'}
-            </span>
-          </Link>
+          <StockRow key={q.symbol} q={q} exchangeId={exchangeId} />
         ))
       )}
 
@@ -104,7 +121,7 @@ export default function StocksTable({ exchangeId, quotes, isLoading }: StocksTab
           color: var(--color-text-primary);
         }
         .st-search::placeholder { color: var(--color-text-muted); }
-        .st-count { font-size: 10px; color: var(--color-text-muted); font-family: var(--font-mono); }
+        .st-count { font-size: 10px; color: var(--color-text-muted); font-family: var(--font-mono); white-space: nowrap; }
 
         .st-header {
           display: grid; grid-template-columns: 80px 1fr 90px 80px 70px;

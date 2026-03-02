@@ -11,6 +11,7 @@ const Watchlist   = lazy(() => import('./pages/Watchlist'))
 const Portfolio   = lazy(() => import('./pages/Portfolio'))
 const Alerts      = lazy(() => import('./pages/Alerts'))
 const Calendar    = lazy(() => import('./pages/Calendar'))
+const Compare     = lazy(() => import('./pages/Compare'))
 const NotFound    = lazy(() => import('./pages/NotFound'))
 
 function PageLoader() {
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/portfolio"                           element={<Portfolio />} />
           <Route path="/alerts"                              element={<Alerts />} />
           <Route path="/calendar"                            element={<Calendar />} />
+          <Route path="/compare"                             element={<Compare />} />
           <Route path="*"                                    element={<NotFound />} />
         </Routes>
       </Suspense>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { provider } from '../services/api'
@@ -38,6 +38,77 @@ function ChartTooltip({ active, payload }: any) {
     </div>
   )
 }
+
+// ── Currency Converter ────────────────────────────────────────────────────────
+
+function CurrencyConverter({ rates }: { rates: ForexRate[] }) {
+  // Build a map: currencyCode → USD rate (how many USD for 1 unit)
+  // rates are USD/X, so rate = X per 1 USD → 1/rate = USD per X
+  const usdRates = useMemo(() => {
+    const map: Record<string, number> = { USD: 1 }
+    for (const r of rates) {
+      if (r.base === 'USD') map[r.quote] = r.rate          // X per 1 USD
+      if (r.quote === 'USD') map[r.base] = 1 / r.rate      // 1/rate = USD per base
+    }
+    return map
+  }, [rates])
+
+  const currencies = useMemo(() => ['USD', ...Object.keys(usdRates).filter(c => c !== 'USD').sort()], [usdRates])
+
+  const [amount, setAmount] = useState('1')
+  const [from, setFrom]     = useState('USD')
+  const [to, setTo]         = useState('ZAR')
+
+  const result = useMemo(() => {
+    const amt = parseFloat(amount)
+    if (!isFinite(amt) || !usdRates[from] || !usdRates[to]) return null
+    // Convert: from → USD → to
+    const fromRate = usdRates[from]  // to's per USD (if from is quoted vs USD)
+    const toRate   = usdRates[to]
+    // amt in `from`: first convert to USD
+    const amtUsd = from === 'USD' ? amt : amt / fromRate
+    const converted = to === 'USD' ? amtUsd : amtUsd * toRate
+    return converted
+  }, [amount, from, to, usdRates])
+
+  const swapPair = () => { setFrom(to); setTo(from) }
+
+  return (
+    <div className="panel conv-card">
+      <div className="section-label">Currency Converter</div>
+      <div className="conv-row">
+        <input
+          type="number"
+          className="conv-amount"
+          value={amount}
+          min="0"
+          step="any"
+          onChange={e => setAmount(e.target.value)}
+        />
+        <select className="conv-select" value={from} onChange={e => setFrom(e.target.value)}>
+          {currencies.map(c => <option key={c}>{c}</option>)}
+        </select>
+        <button className="conv-swap" onClick={swapPair} title="Swap currencies">⇄</button>
+        <select className="conv-select" value={to} onChange={e => setTo(e.target.value)}>
+          {currencies.map(c => <option key={c}>{c}</option>)}
+        </select>
+      </div>
+      <div className="conv-result">
+        {result != null ? (
+          <>
+            <span className="conv-from num">{parseFloat(amount || '0').toLocaleString('en-US', { minimumFractionDigits: 2 })} {from}</span>
+            <span className="conv-eq"> = </span>
+            <span className="conv-to num">{result.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} {to}</span>
+          </>
+        ) : (
+          <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>Rate not available</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Forex() {
   const [selectedPair, setSelectedPair] = useState<string | null>(null)
@@ -169,6 +240,11 @@ export default function Forex() {
         </div>
       </div>
 
+      {/* Currency converter */}
+      {(rates ?? []).length > 0 && (
+        <CurrencyConverter rates={rates ?? []} />
+      )}
+
       <style>{`
         .forex-page { display: flex; flex-direction: column; gap: 1rem; max-width: 1000px; }
         .fx-h1  { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
@@ -220,6 +296,34 @@ export default function Forex() {
           height: 200px; display: flex; align-items: center; justify-content: center;
           font-size: 12px; color: var(--color-text-muted);
         }
+
+        /* Currency converter */
+        .conv-card { padding: 0.875rem 1rem; display: flex; flex-direction: column; gap: 0.625rem; }
+        .conv-row {
+          display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+        }
+        .conv-amount {
+          width: 100px; background: var(--color-bg-tertiary);
+          border: 1px solid var(--color-border); border-radius: 4px;
+          padding: 5px 8px; color: var(--color-text-primary);
+          font-size: 13px; font-family: var(--font-mono); font-weight: 700; outline: none;
+        }
+        .conv-amount:focus { border-color: var(--color-gold-dim); }
+        .conv-select {
+          background: var(--color-bg-tertiary); border: 1px solid var(--color-border);
+          border-radius: 4px; padding: 5px 8px; color: var(--color-text-primary);
+          font-size: 12px; font-family: var(--font-mono); font-weight: 700; cursor: pointer; outline: none;
+        }
+        .conv-swap {
+          background: var(--color-bg-elevated); border: 1px solid var(--color-border);
+          border-radius: 4px; padding: 4px 8px; color: var(--color-text-muted);
+          font-size: 14px; cursor: pointer; transition: all 0.1s;
+        }
+        .conv-swap:hover { color: var(--color-gold); border-color: var(--color-gold-dim); }
+        .conv-result { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
+        .conv-from { font-size: 13px; color: var(--color-text-secondary); font-weight: 600; }
+        .conv-eq   { font-size: 13px; color: var(--color-text-muted); }
+        .conv-to   { font-size: 18px; font-weight: 800; color: var(--color-gold); }
       `}</style>
     </div>
   )
