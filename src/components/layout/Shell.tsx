@@ -4,6 +4,7 @@ import Sidebar from './Sidebar'
 import TickerStrip from './TickerStrip'
 import CommandPalette from '../search/CommandPalette'
 import { useCommandPalette } from '../../hooks/useCommandPalette'
+import { useAlertWatcher } from '../../hooks/useAlertWatcher'
 
 interface ShellProps {
   children: ReactNode
@@ -12,6 +13,9 @@ interface ShellProps {
 export default function Shell({ children }: ShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const { isOpen, open, close } = useCommandPalette()
+
+  // Mount alert watcher once at shell level
+  useAlertWatcher()
 
   return (
     <div className="shell">
@@ -25,22 +29,12 @@ export default function Shell({ children }: ShellProps) {
 
       <style>{`
         .shell {
-          display: flex;
-          flex-direction: column;
-          height: 100vh;
-          overflow: hidden;
+          display: flex; flex-direction: column;
+          height: 100vh; overflow: hidden;
           background: var(--color-bg-primary);
         }
-        .shell-body {
-          display: flex;
-          flex: 1;
-          overflow: hidden;
-        }
-        .shell-main {
-          flex: 1;
-          overflow-y: auto;
-          padding: 1rem;
-        }
+        .shell-body { display: flex; flex: 1; overflow: hidden; }
+        .shell-main { flex: 1; overflow-y: auto; padding: 1rem; }
       `}</style>
     </div>
   )

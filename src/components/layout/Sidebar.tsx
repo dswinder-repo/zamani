@@ -1,13 +1,11 @@
+import type React from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard,
-  Newspaper,
-  DollarSign,
-  Star,
-  BarChart2,
-  ChevronLeft,
-  ChevronRight,
+  LayoutDashboard, Newspaper, DollarSign, Star,
+  BarChart2, ChevronLeft, ChevronRight,
+  Briefcase, Bell, Calendar,
 } from 'lucide-react'
+import { useAlerts } from '../../stores/alerts'
 
 const EXCHANGES = [
   { id: 'jse',  label: 'JSE',  country: 'ZA', tier: 1 },
@@ -20,11 +18,14 @@ const EXCHANGES = [
   { id: 'luse', label: 'LUSE', country: 'ZM', tier: 3 },
 ]
 
-const NAV = [
+const NAV: { to: string; icon: React.ComponentType<{ size?: number }>; label: string; badge?: boolean }[] = [
   { to: '/',          icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/news',      icon: Newspaper,       label: 'News' },
   { to: '/forex',     icon: DollarSign,      label: 'Forex' },
   { to: '/watchlist', icon: Star,            label: 'Watchlist' },
+  { to: '/portfolio', icon: Briefcase,       label: 'Portfolio' },
+  { to: '/alerts',    icon: Bell,            label: 'Alerts',   badge: true },
+  { to: '/calendar',  icon: Calendar,        label: 'Calendar' },
 ]
 
 interface SidebarProps {
@@ -33,11 +34,13 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const { unreadCount } = useAlerts()
+
   return (
     <nav className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
       {/* Main nav */}
       <div className="sidebar-section">
-        {NAV.map(({ to, icon: Icon, label }) => (
+        {NAV.map(({ to, icon: Icon, label, badge }) => (
           <NavLink
             key={to}
             to={to}
@@ -45,8 +48,16 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             className={({ isActive }) => `nav-item ${isActive ? 'nav-item--active' : ''}`}
             title={collapsed ? label : undefined}
           >
-            <Icon size={14} />
+            <span style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Icon size={14} />
+              {badge && unreadCount > 0 && (
+                <span className="nav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+              )}
+            </span>
             {!collapsed && <span>{label}</span>}
+            {!collapsed && badge && unreadCount > 0 && (
+              <span className="nav-badge-inline">{unreadCount}</span>
+            )}
           </NavLink>
         ))}
       </div>
@@ -140,6 +151,20 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         .ex-label { flex: 1; }
         .ex-flag  { font-size: 13px; }
+
+        .nav-badge {
+          position: absolute; top: -4px; right: -6px;
+          min-width: 12px; height: 12px; border-radius: 6px;
+          background: var(--color-down); color: white;
+          font-size: 7px; font-weight: 700; font-family: var(--font-mono);
+          display: flex; align-items: center; justify-content: center; padding: 0 2px;
+        }
+        .nav-badge-inline {
+          margin-left: auto; min-width: 16px; height: 16px; border-radius: 8px;
+          background: var(--color-down); color: white;
+          font-size: 8px; font-weight: 700; font-family: var(--font-mono);
+          display: flex; align-items: center; justify-content: center; padding: 0 3px;
+        }
 
         .sidebar-toggle {
           margin-top: auto;
