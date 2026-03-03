@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { provider } from '../../services/api'
+import { provider, getLiveForex } from '../../services/api'
 import type { IndexSnapshot, ForexRate } from '../../services/api'
 
 interface TickItem {
@@ -18,7 +18,7 @@ export default function TickerStrip() {
 
   const { data: forex } = useQuery<ForexRate[]>({
     queryKey: ['forex', 'major'],
-    queryFn: () => provider.getForex?.([]) ?? Promise.resolve([]),
+    queryFn: () => getLiveForex(),
     staleTime: 60_000,
   })
 

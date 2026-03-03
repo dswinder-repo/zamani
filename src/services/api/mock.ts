@@ -46,7 +46,8 @@ const FOREX: ForexRate[] = [
   { base: 'USD', quote: 'KES', rate: 129.5, change: 0.8,   changePct: 0.62,  timestamp: Date.now() },
   { base: 'USD', quote: 'GHS', rate: 13.1,  change: 0.05,  changePct: 0.38,  timestamp: Date.now() },
   { base: 'USD', quote: 'EGP', rate: 48.9,  change: -0.1,  changePct: -0.20, timestamp: Date.now() },
-  { base: 'USD', quote: 'ETB', rate: 56.3,  change: 0.2,   changePct: 0.36,  timestamp: Date.now() },
+  { base: 'USD', quote: 'ETB', rate: 131.2, change: 0.4,   changePct: 0.31,  timestamp: Date.now() },
+  { base: 'USD', quote: 'UGX', rate: 3700,  change: -5,    changePct: -0.14, timestamp: Date.now() },
   { base: 'USD', quote: 'XOF', rate: 615,   change: 2,     changePct: 0.33,  timestamp: Date.now() },
   { base: 'ZAR', quote: 'USD', rate: 0.054, change: 0,     changePct: -0.65, timestamp: Date.now() },
 ]

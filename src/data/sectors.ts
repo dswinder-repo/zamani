@@ -90,6 +90,18 @@ const SECTOR_MAP: Record<string, string> = {
   'bse:CHOBE': 'Hospitality','bse:WILDERNESS': 'Hospitality',
   'bse:CRESTA': 'Hospitality',
   'bse:TURNSTAR': 'Property','bse:TLOU': 'Energy',
+  // ── USE ──────────────────────────────────────────────────────────────────
+  'use:SBU':          'Banking',     'use:DFCU':  'Banking',     'use:BOBU':  'Banking',
+  'use:EBL':          'Banking',     'use:KCB':   'Banking',
+  'use:NIC':          'Insurance',   'use:JHL':   'Insurance',
+  'use:MTNU':         'Telecoms',    'use:AIRTEL UGANDA': 'Telecoms',
+  'use:EABL':         'Consumer',    'use:BATU':  'Consumer',
+  'use:NMG':          'Media',       'use:NVL':   'Media',
+  'use:UMEM':         'Energy',
+  'use:QCIL':         'Healthcare',
+  'use:UCL':          'Industrial',
+  'use:CENT':         'Financial Services',
+  'use:KA':           'Transport',
   // ── LUSE ─────────────────────────────────────────────────────────────────
   'luse:ZCCM': 'Mining',    'luse:CEC': 'Energy',
   'luse:ZANACO': 'Banking', 'luse:STANDARD': 'Banking','luse:INVESTRUST': 'Banking',

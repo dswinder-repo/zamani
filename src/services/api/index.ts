@@ -25,3 +25,5 @@ if (provider.name !== 'mock') {
 }
 
 export * from './types'
+export { getLiveForex } from './forex'
+export { getUSEQuotes, getUSEIndices, getUSEMovers } from './use'

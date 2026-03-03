@@ -24,6 +24,7 @@ const SCHEDULES: ExchangeSchedule[] = [
   { id: 'zse',  tz: 'Africa/Harare',       openH: 9,  openM: 0,  closeH: 16, closeM: 30, days: [1,2,3,4,5] },
   { id: 'bse',  tz: 'Africa/Gaborone',     openH: 9,  openM: 0,  closeH: 17, closeM: 0,  days: [1,2,3,4,5] },
   { id: 'luse', tz: 'Africa/Lusaka',       openH: 9,  openM: 0,  closeH: 13, closeM: 0,  days: [1,2,3,4,5] },
+  { id: 'use',  tz: 'Africa/Kampala',      openH: 9,  openM: 0,  closeH: 13, closeM: 0,  days: [1,2,3,4,5] },
 ]
 
 function localTime(tz: string, now = new Date()): { hour: number; minute: number; day: number } {

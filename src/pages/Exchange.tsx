@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Bookmark, BookmarkCheck, X } from 'lucide-react'
-import { provider } from '../services/api'
+import { provider, getUSEQuotes, getUSEIndices, getUSEMovers } from '../services/api'
 import type { IndexSnapshot, Quote } from '../services/api'
 import IndexCard from '../components/market/IndexCard'
 import TopMovers from '../components/market/TopMovers'
@@ -26,6 +26,7 @@ const EXCHANGE_INFO: Record<string, {
   zse:  { name: 'Zimbabwe Stock Exchange',     country: 'Zimbabwe',     flag: '🇿🇼', currency: 'USD', accentVar: '--color-zse',  founded: '1896', mic: 'XZIM' },
   bse:  { name: 'Botswana Stock Exchange',     country: 'Botswana',     flag: '🇧🇼', currency: 'BWP', accentVar: '--color-bse',  founded: '1989', mic: 'XBOT' },
   luse: { name: 'Lusaka Securities Exchange',  country: 'Zambia',       flag: '🇿🇲', currency: 'ZMW', accentVar: '--color-luse', founded: '1994', mic: 'XLUS' },
+  use:  { name: 'Uganda Securities Exchange',  country: 'Uganda',       flag: '🇺🇬', currency: 'UGX', accentVar: '--color-use',  founded: '1997', mic: 'XUGA' },
 }
 
 export default function Exchange() {
@@ -37,23 +38,25 @@ export default function Exchange() {
   const { presets, savePreset, deletePreset } = useScreener()
   const exchangePresets = presets.filter(p => p.exchange === id)
 
+  const isUSE = id === 'use'
+
   const { data: indices, isLoading: indicesLoading } = useQuery<IndexSnapshot[]>({
     queryKey: ['indices', id],
-    queryFn:  () => provider.getIndices?.(id) ?? Promise.resolve([]),
+    queryFn:  isUSE ? () => getUSEIndices() : () => provider.getIndices?.(id) ?? Promise.resolve([]),
     staleTime: 60_000,
     refetchInterval: 60_000,
   })
 
   const { data: movers, isLoading: moversLoading } = useQuery({
     queryKey: ['movers', id],
-    queryFn:  () => provider.getTopMovers?.(id) ?? Promise.resolve({ gainers: [], losers: [] }),
+    queryFn:  isUSE ? () => getUSEMovers() : () => provider.getTopMovers?.(id) ?? Promise.resolve({ gainers: [], losers: [] }),
     staleTime: 60_000,
     refetchInterval: 60_000,
   })
 
   const { data: stocks, isLoading: stocksLoading } = useQuery<Quote[]>({
     queryKey: ['stocks', id],
-    queryFn:  () => provider.getExchangeStocks?.(id) ?? Promise.resolve([]),
+    queryFn:  isUSE ? () => getUSEQuotes() : () => provider.getExchangeStocks?.(id) ?? Promise.resolve([]),
     staleTime: 60_000,
     refetchInterval: 60_000,
   })

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { provider } from '../services/api'
+import { provider, getLiveForex } from '../services/api'
 import type { ForexRate, OHLCV } from '../services/api'
 import ForexTable from '../components/market/ForexTable'
 
@@ -13,6 +13,7 @@ const PAIR_LABELS: Record<string, string> = {
   USDEGP: 'US Dollar / Egyptian Pound',
   USDETB: 'US Dollar / Ethiopian Birr',
   USDXOF: 'US Dollar / West African CFA',
+  USDUGX: 'US Dollar / Ugandan Shilling',
   ZARUSD: 'South African Rand / US Dollar',
 }
 
@@ -115,7 +116,7 @@ export default function Forex() {
 
   const { data: rates, isLoading } = useQuery<ForexRate[]>({
     queryKey: ['forex', 'all'],
-    queryFn:  () => provider.getForex?.([]) ?? Promise.resolve([]),
+    queryFn:  () => getLiveForex(),
     staleTime: 60_000,
     refetchInterval: 60_000,
   })

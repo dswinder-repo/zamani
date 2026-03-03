@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, TrendingDown } from 'lucide-react'
-import { provider } from '../services/api'
+import { provider, getLiveForex } from '../services/api'
 import type { IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from '../services/api'
 import IndexCard from '../components/market/IndexCard'
 import ForexTable from '../components/market/ForexTable'
@@ -19,7 +19,7 @@ export default function Dashboard() {
 
   const { data: forex, isLoading: loadingFx } = useQuery<ForexRate[]>({
     queryKey: ['forex', 'major'],
-    queryFn: () => provider.getForex?.([]) ?? Promise.resolve([]),
+    queryFn: () => getLiveForex(),
     staleTime: 60_000,
   })
 

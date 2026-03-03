@@ -16,6 +16,7 @@ const EXCHANGES = [
   { id: 'zse',  label: 'ZSE',  country: 'ZW', tier: 2 },
   { id: 'bse',  label: 'BSE',  country: 'BW', tier: 2 },
   { id: 'luse', label: 'LUSE', country: 'ZM', tier: 3 },
+  { id: 'use',  label: 'USE',  country: 'UG', tier: 3 },
 ]
 
 const NAV: { to: string; icon: React.ComponentType<{ size?: number }>; label: string; badge?: boolean }[] = [
@@ -182,6 +183,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           .ex-dot--zse  { background: var(--color-zse); }
           .ex-dot--bse  { background: var(--color-bse); }
           .ex-dot--luse { background: var(--color-luse); }
+          .ex-dot--use  { background: var(--color-use); }
 
           .ex-label { flex: 1; }
           .ex-flag  { font-size: 13px; }
