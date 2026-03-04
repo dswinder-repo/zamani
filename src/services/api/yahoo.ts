@@ -1,17 +1,15 @@
 /**
  * Yahoo Finance adapter — live JSE stocks and commodity futures.
  *
- * Uses:
- *   v7/finance/quote  — batch stock quotes (up to 20 symbols per request)
- *   v8/finance/chart  — single symbol quote + OHLCV history
+ * Uses v8/finance/chart exclusively (the v7/quote batch endpoint requires
+ * crumb authentication that varies by session). All multi-symbol fetches
+ * are done in parallel batches via the chart endpoint.
  *
  * Supported exchanges: JSE (.JO suffix), USE (delegated to use.ts adapter)
  * Supported instruments: JSE equities, commodity futures (GC=F, SI=F, etc.)
  *
- * CORS: query1.finance.yahoo.com is generally browser-accessible.
- * If blocked on your deployment (e.g. GitHub Pages), set VITE_YAHOO_PROXY_URL
- * to a Cloudflare Worker proxy URL — the adapter uses it as the base URL.
- * Free Cloudflare Workers: 100K req/day.
+ * CORS: set VITE_YAHOO_PROXY_URL to a Cloudflare Worker proxy URL to route
+ * all requests server-side and bypass browser CORS restrictions.
  */
 import type {
   MarketProvider, Quote, OHLCV, IndexSnapshot, Commodity, Mover, NewsItem,
@@ -98,34 +96,54 @@ const COMMODITY_DEFS: { id: string; symbol: string; name: string; unit: string }
 // ── Internal Yahoo Finance types ──────────────────────────────────────────────
 
 interface YFQuoteResult {
-  symbol:                     string
-  regularMarketPrice?:        number
-  regularMarketChange?:       number
+  symbol:                      string
+  regularMarketPrice?:         number
+  regularMarketChange?:        number
   regularMarketChangePercent?: number
-  regularMarketVolume?:       number
-  longName?:                  string
-  shortName?:                 string
-  currency?:                  string
+  regularMarketVolume?:        number
+  longName?:                   string
+  shortName?:                  string
+  currency?:                   string
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const CHUNK_SIZE = 20
+// v7/finance/quote requires session crumb auth — use v8/finance/chart instead.
+// Fetch all symbols in parallel (max CONCURRENCY at once).
+const CONCURRENCY = 10
 
 async function batchQuote(symbols: string[]): Promise<YFQuoteResult[]> {
   const results: YFQuoteResult[] = []
-  for (let i = 0; i < symbols.length; i += CHUNK_SIZE) {
-    const chunk = symbols.slice(i, i + CHUNK_SIZE)
-    try {
-      const url = `${BASE}/v7/finance/quote?symbols=${chunk.join(',')}`
-      const res = await fetch(url)
-      if (!res.ok) continue
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = await res.json() as any
-      const items: YFQuoteResult[] = data?.quoteResponse?.result ?? []
-      results.push(...items)
-    } catch {
-      // skip failed chunk — caller will see fewer results
+  for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+    const chunk = symbols.slice(i, i + CONCURRENCY)
+    const settled = await Promise.allSettled(
+      chunk.map(async (sym): Promise<YFQuoteResult | null> => {
+        try {
+          const url = `${BASE}/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`
+          const res = await fetch(url)
+          if (!res.ok) return null
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const data = await res.json() as any
+          const meta = data?.chart?.result?.[0]?.meta
+          if (!meta || !meta.regularMarketPrice) return null
+          const price     = meta.regularMarketPrice as number
+          const prevClose = (meta.previousClose ?? meta.chartPreviousClose ?? price) as number
+          return {
+            symbol:                      sym,
+            regularMarketPrice:          price,
+            regularMarketChange:         price - prevClose,
+            regularMarketChangePercent:  prevClose ? (price - prevClose) / prevClose * 100 : 0,
+            regularMarketVolume:         meta.regularMarketVolume,
+            longName:                    meta.longName ?? meta.shortName,
+            currency:                    meta.currency,
+          }
+        } catch {
+          return null
+        }
+      })
+    )
+    for (const r of settled) {
+      if (r.status === 'fulfilled' && r.value !== null) results.push(r.value)
     }
   }
   return results
