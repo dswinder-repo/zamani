@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Bookmark, BookmarkCheck, X } from 'lucide-react'
-import { provider, getUSEQuotes, getUSEIndices, getUSEMovers } from '../services/api'
+import { provider, getUSEQuotes, getUSEIndices, getUSEMovers, YAHOO_SUPPORTED_EXCHANGES } from '../services/api'
 import type { IndexSnapshot, Quote } from '../services/api'
 import IndexCard from '../components/market/IndexCard'
 import TopMovers from '../components/market/TopMovers'
@@ -38,7 +38,8 @@ export default function Exchange() {
   const { presets, savePreset, deletePreset } = useScreener()
   const exchangePresets = presets.filter(p => p.exchange === id)
 
-  const isUSE = id === 'use'
+  const isUSE  = id === 'use'
+  const isLive = YAHOO_SUPPORTED_EXCHANGES.includes(id)
 
   const { data: indices, isLoading: indicesLoading } = useQuery<IndexSnapshot[]>({
     queryKey: ['indices', id],
@@ -129,12 +130,16 @@ export default function Exchange() {
             {exIndices.map(idx => <IndexCard key={idx.id} index={idx} />)}
           </div>
         ) : (
-          <p className="ex-loading">No index data for {info.name} yet.</p>
+          <p className="ex-loading">
+            {isLive
+              ? `No index data available for ${info.name}.`
+              : 'Live index data for this exchange is not yet connected.'}
+          </p>
         )}
       </section>
 
       {/* Sector heatmap */}
-      {(stocks ?? []).length > 0 && (
+      {isLive && (stocks ?? []).length > 0 && (
         <section>
           <SectorHeatmap
             exchangeId={id}
@@ -146,7 +151,7 @@ export default function Exchange() {
       )}
 
       {/* Sector filter tabs */}
-      {availableSectors.length > 0 && (
+      {isLive && availableSectors.length > 0 && (
         <div className="ex-sector-filters">
           <button
             className={`ex-sector-btn ${!activeSector ? 'active' : ''}`}
@@ -199,28 +204,32 @@ export default function Exchange() {
         </div>
       )}
 
-      {/* Two columns: Movers + Stocks table */}
-      <div className="ex-cols">
-        <section>
-          <div className="section-label">Top Movers</div>
-          {moversLoading
-            ? <p className="ex-loading">Loading…</p>
-            : <TopMovers gainers={movers?.gainers ?? []} losers={movers?.losers ?? []} />
-          }
-        </section>
+      {/* Two columns: Movers + Stocks table — only for live exchanges */}
+      {isLive ? (
+        <div className="ex-cols">
+          <section>
+            <div className="section-label">Top Movers</div>
+            {moversLoading
+              ? <p className="ex-loading">Loading…</p>
+              : <TopMovers gainers={movers?.gainers ?? []} losers={movers?.losers ?? []} />
+            }
+          </section>
 
-        <section className="ex-stocks-col">
-          <div className="section-label">
-            {activeSector ? `${activeSector} Securities` : 'All Securities'}
-          </div>
-          <StocksTable
-            exchangeId={id}
-            quotes={filteredStocks}
-            isLoading={stocksLoading}
-            activeSector={activeSector}
-          />
-        </section>
-      </div>
+          <section className="ex-stocks-col">
+            <div className="section-label">
+              {activeSector ? `${activeSector} Securities` : 'All Securities'}
+            </div>
+            <StocksTable
+              exchangeId={id}
+              quotes={filteredStocks}
+              isLoading={stocksLoading}
+              activeSector={activeSector}
+            />
+          </section>
+        </div>
+      ) : (
+        <ExchangeUnavailable name={info.name} accentVar={info.accentVar} />
+      )}
 
       <style>{`
         .exchange-page { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1200px; }
@@ -327,7 +336,37 @@ export default function Exchange() {
           .ex-sector-btn { padding: 2px 7px; font-size: 9px; }
           .hm-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
         }
+
+        /* Unavailable exchange panel */
+        .ex-unavailable {
+          padding: 2rem 1.5rem;
+          text-align: center;
+          border: 1px dashed var(--color-border);
+          background: var(--color-bg-secondary);
+        }
+        .ex-unavail-title {
+          font-size: 14px; font-weight: 600;
+          color: var(--color-text-secondary); margin: 0 0 0.5rem;
+        }
+        .ex-unavail-body {
+          font-size: 12px; color: var(--color-text-muted); margin: 0;
+          max-width: 420px; margin: 0 auto; line-height: 1.6;
+        }
       `}</style>
+    </div>
+  )
+}
+
+function ExchangeUnavailable({ name, accentVar }: { name: string; accentVar: string }) {
+  return (
+    <div
+      className="ex-unavailable"
+      style={{ borderColor: `color-mix(in srgb, var(${accentVar}) 30%, var(--color-border))` }}
+    >
+      <p className="ex-unavail-title">Live market data for {name} is not yet available.</p>
+      <p className="ex-unavail-body">
+        We're working to connect a live data feed for this exchange. Check back soon.
+      </p>
     </div>
   )
 }

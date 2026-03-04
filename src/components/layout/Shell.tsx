@@ -5,6 +5,7 @@ import TickerStrip from './TickerStrip'
 import CommandPalette from '../search/CommandPalette'
 import { useCommandPalette } from '../../hooks/useCommandPalette'
 import { useAlertWatcher } from '../../hooks/useAlertWatcher'
+import { IS_DEMO_MODE } from '../../services/api'
 
 interface ShellProps {
   children: ReactNode
@@ -21,6 +22,11 @@ export default function Shell({ children }: ShellProps) {
     <div className="shell">
       <Topbar onSearch={open} onMenuToggle={() => setMobileSidebarOpen(v => !v)} />
       <TickerStrip />
+      {IS_DEMO_MODE && (
+        <div className="demo-banner">
+          ⚠ Demo mode — prices are simulated and not real
+        </div>
+      )}
       <div className="shell-body">
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -42,6 +48,13 @@ export default function Shell({ children }: ShellProps) {
         }
         .shell-body { display: flex; flex: 1; overflow: hidden; }
         .shell-main { flex: 1; overflow-y: auto; padding: 1rem; }
+
+        .demo-banner {
+          background: #b45309; color: #fff;
+          font-size: 11px; font-weight: 700; text-align: center;
+          padding: 4px 1rem; letter-spacing: 0.04em;
+          flex-shrink: 0;
+        }
 
         @media (max-width: 768px) {
           .shell-main { padding: 0.75rem; }

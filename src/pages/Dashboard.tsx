@@ -92,7 +92,9 @@ export default function Dashboard() {
             <div className="section-label">Top Movers</div>
             {loadingMovers
               ? <Skeleton height={180} />
-              : <TopMovers gainers={movers?.gainers ?? []} losers={movers?.losers ?? []} />}
+              : ((movers?.gainers.length ?? 0) + (movers?.losers.length ?? 0)) > 0
+                ? <TopMovers gainers={movers?.gainers ?? []} losers={movers?.losers ?? []} />
+                : <DashEmpty message="Movers data not available" />}
           </section>
 
           <section className="dash-section">
@@ -110,7 +112,11 @@ export default function Dashboard() {
 
           <section className="dash-section">
             <div className="section-label">Commodities</div>
-            {loadingComm ? <Skeleton height={200} /> : <CommoditiesPanel items={commodities ?? []} />}
+            {loadingComm
+              ? <Skeleton height={200} />
+              : (commodities?.length ?? 0) > 0
+                ? <CommoditiesPanel items={commodities ?? []} />
+                : <DashEmpty message="Commodity data unavailable" />}
           </section>
         </div>
 
@@ -118,7 +124,11 @@ export default function Dashboard() {
         <div className="dash-col">
           <section className="dash-section">
             <div className="section-label">Latest News</div>
-            {loadingNews ? <Skeleton height={400} /> : <NewsFeed items={news ?? []} />}
+            {loadingNews
+              ? <Skeleton height={400} />
+              : (news?.length ?? 0) > 0
+                ? <NewsFeed items={news ?? []} />
+                : <DashEmpty message="Live news feed not yet connected" />}
           </section>
         </div>
 
@@ -186,6 +196,21 @@ export default function Dashboard() {
           .dashboard      { gap: 1rem; }
         }
       `}</style>
+    </div>
+  )
+}
+
+function DashEmpty({ message }: { message: string }) {
+  return (
+    <div style={{
+      padding: '1.25rem 0.75rem',
+      fontSize: '11px',
+      color: 'var(--color-text-muted)',
+      textAlign: 'center',
+      border: '1px dashed var(--color-border)',
+      borderRadius: 4,
+    }}>
+      {message}
     </div>
   )
 }
