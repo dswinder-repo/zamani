@@ -304,6 +304,23 @@ export const yahooProvider: MarketProvider = {
   },
 
   async getNews(): Promise<NewsItem[]> {
-    return []
+    try {
+      const query = 'JSE South Africa stock market Africa finance investing'
+      const url   = `${BASE}/news?q=${encodeURIComponent(query)}`
+      const res   = await fetch(url)
+      if (!res.ok) return []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await res.json() as any[]
+      if (!Array.isArray(data)) return []
+      return data.slice(0, 15).map((item): NewsItem => ({
+        id:          item.id ?? String(item.publishedAt),
+        headline:    item.headline ?? '',
+        source:      item.source ?? 'Google News',
+        url:         item.url ?? '',
+        publishedAt: item.publishedAt ?? Date.now(),
+      })).filter(n => n.headline)
+    } catch {
+      return []
+    }
   },
 }

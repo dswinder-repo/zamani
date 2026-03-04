@@ -54,15 +54,29 @@ async function fetchDelayed(): Promise<USERow[]> {
   return res.json() as Promise<USERow[]>
 }
 
-// localStorage key for previous close cache (for change % calculation)
+// localStorage key for previous close cache — stored as { date, prices }
+// so we only use yesterday's prices (different calendar date) as the prev close.
+// Same-day refreshes show 0 change (honest — no intraday reference).
 const PREV_KEY = 'zamani_use_prev'
 
+interface PrevCache { date: string; prices: Record<string, number> }
+
 function loadPrev(): Record<string, number> {
-  try { return JSON.parse(localStorage.getItem(PREV_KEY) ?? '{}') } catch { return {} }
+  try {
+    const raw = localStorage.getItem(PREV_KEY)
+    if (!raw) return {}
+    const cached: PrevCache = JSON.parse(raw)
+    const today = new Date().toISOString().slice(0, 10)
+    // Only use cache as previous close if it's from a different day
+    return cached.date !== today ? (cached.prices ?? {}) : {}
+  } catch { return {} }
 }
 
 function savePrev(prices: Record<string, number>) {
-  try { localStorage.setItem(PREV_KEY, JSON.stringify(prices)) } catch { /* quota */ }
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    localStorage.setItem(PREV_KEY, JSON.stringify({ date: today, prices }))
+  } catch { /* quota */ }
 }
 
 function buildFallback(): USERow[] {
