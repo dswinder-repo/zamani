@@ -80,6 +80,50 @@ function toYahooSymbol(symbol: string): string {
   return symbol
 }
 
+// ── Global market index definitions ──────────────────────────────────────────
+
+export interface GlobalMarket {
+  id:        string
+  name:      string
+  region:    string
+  value:     number
+  change:    number
+  changePct: number
+}
+
+const GLOBAL_MARKET_DEFS: { id: string; symbol: string; name: string; region: string }[] = [
+  { id: 'sp500',  symbol: '^GSPC',    name: 'S&P 500',   region: 'US' },
+  { id: 'nasdaq', symbol: '^IXIC',    name: 'NASDAQ',    region: 'US' },
+  { id: 'dow',    symbol: '^DJI',     name: 'DOW',       region: 'US' },
+  { id: 'vix',    symbol: '^VIX',     name: 'VIX',       region: 'US' },
+  { id: 'dxy',    symbol: 'DX-Y.NYB', name: 'DXY',       region: 'US' },
+  { id: 'us10y',  symbol: '^TNX',     name: 'US 10Y',    region: 'US' },
+  { id: 'ftse',   symbol: '^FTSE',    name: 'FTSE 100',  region: 'UK' },
+  { id: 'dax',    symbol: '^GDAXI',   name: 'DAX',       region: 'DE' },
+  { id: 'nikkei', symbol: '^N225',    name: 'NIKKEI',    region: 'JP' },
+  { id: 'hsi',    symbol: '^HSI',     name: 'HANG SENG', region: 'HK' },
+]
+
+export async function getGlobalMarkets(): Promise<GlobalMarket[]> {
+  const symbols = GLOBAL_MARKET_DEFS.map(d => d.symbol)
+  const quotes  = await batchQuote(symbols)
+  const bySymbol = new Map(quotes.map(q => [q.symbol, q]))
+  return GLOBAL_MARKET_DEFS
+    .map(def => {
+      const q = bySymbol.get(def.symbol)
+      if (!q?.regularMarketPrice) return null
+      return {
+        id:        def.id,
+        name:      def.name,
+        region:    def.region,
+        value:     q.regularMarketPrice,
+        change:    +(q.regularMarketChange    ?? 0).toFixed(2),
+        changePct: +(q.regularMarketChangePercent ?? 0).toFixed(2),
+      }
+    })
+    .filter((m): m is GlobalMarket => m !== null)
+}
+
 // ── Commodity futures definitions ─────────────────────────────────────────────
 
 const COMMODITY_DEFS: { id: string; symbol: string; name: string; unit: string }[] = [

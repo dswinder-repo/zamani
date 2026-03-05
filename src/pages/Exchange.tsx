@@ -35,6 +35,7 @@ export default function Exchange() {
   const localTime = getExchangeLocalTime(id)
 
   const [activeSector, setActiveSector] = useState<string | null>(null)
+  const [screenerFilter, setScreenerFilter] = useState<'all' | 'gainers' | 'losers' | 'active'>('all')
   const { presets, savePreset, deletePreset } = useScreener()
   const exchangePresets = presets.filter(p => p.exchange === id)
 
@@ -69,11 +70,26 @@ export default function Exchange() {
     return SECTOR_ORDER.filter(s => set.has(s))
   }, [stocks, id])
 
-  // Filtered stocks based on active sector
+  // Filtered stocks based on active sector + screener filter
   const filteredStocks = useMemo(() => {
-    if (!activeSector || !stocks) return stocks ?? []
-    return stocks.filter(q => getSector(id, q.symbol) === activeSector)
-  }, [stocks, activeSector, id])
+    let list = stocks ?? []
+    if (activeSector) list = list.filter(q => getSector(id, q.symbol) === activeSector)
+    if (screenerFilter === 'gainers') list = list.filter(q => q.changePct > 0)
+    if (screenerFilter === 'losers')  list = list.filter(q => q.changePct < 0)
+    if (screenerFilter === 'active')  list = [...list].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0)).slice(0, 15)
+    return list
+  }, [stocks, activeSector, screenerFilter, id])
+
+  // Market breadth stats
+  const breadth = useMemo(() => {
+    if (!stocks?.length) return null
+    const advancing = stocks.filter(q => q.changePct > 0).length
+    const declining  = stocks.filter(q => q.changePct < 0).length
+    const unchanged  = stocks.length - advancing - declining
+    const upVol   = stocks.filter(q => q.changePct > 0).reduce((s, q) => s + (q.volume ?? 0), 0)
+    const downVol = stocks.filter(q => q.changePct < 0).reduce((s, q) => s + (q.volume ?? 0), 0)
+    return { advancing, declining, unchanged, upVol, downVol, total: stocks.length }
+  }, [stocks])
 
   if (!info) return (
     <div style={{ padding: '2rem', color: 'var(--color-text-muted)' }}>Exchange not found.</div>
@@ -204,6 +220,11 @@ export default function Exchange() {
         </div>
       )}
 
+      {/* Market Breadth panel — live exchanges only */}
+      {isLive && breadth && !stocksLoading && (
+        <MarketBreadthPanel breadth={breadth} />
+      )}
+
       {/* Two columns: Movers + Stocks table — only for live exchanges */}
       {isLive ? (
         <div className="ex-cols">
@@ -216,8 +237,21 @@ export default function Exchange() {
           </section>
 
           <section className="ex-stocks-col">
-            <div className="section-label">
-              {activeSector ? `${activeSector} Securities` : 'All Securities'}
+            <div className="ex-stocks-header">
+              <div className="section-label">
+                {activeSector ? `${activeSector} Securities` : 'All Securities'}
+              </div>
+              <div className="ex-screener-tabs">
+                {(['all', 'gainers', 'losers', 'active'] as const).map(f => (
+                  <button
+                    key={f}
+                    className={`ex-screener-tab ${screenerFilter === f ? 'active' : ''}`}
+                    onClick={() => setScreenerFilter(f)}
+                  >
+                    {f === 'active' ? 'Most Active' : f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
             <StocksTable
               exchangeId={id}
@@ -316,6 +350,48 @@ export default function Exchange() {
         }
         .ex-preset-del:hover { opacity: 1; }
 
+        /* Market breadth */
+        .ex-breadth {
+          display: flex; align-items: center; gap: 1rem;
+          padding: 0.625rem 0.875rem;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border-subtle);
+          border-radius: 4px; flex-wrap: wrap;
+        }
+        .ex-breadth-stat {
+          display: flex; align-items: center; gap: 0.375rem;
+          font-size: 11px; font-family: var(--font-mono);
+        }
+        .ex-breadth-dot {
+          width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+        }
+        .ex-breadth-bar-wrap {
+          flex: 1; min-width: 120px;
+          height: 6px; background: var(--color-bg-tertiary);
+          border-radius: 3px; overflow: hidden; display: flex;
+        }
+        .ex-breadth-seg { height: 100%; transition: width 0.3s; }
+        .ex-breadth-label {
+          font-size: 10px; color: var(--color-text-muted);
+          letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600;
+        }
+
+        /* Screener tabs */
+        .ex-stocks-header {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;
+        }
+        .ex-stocks-header .section-label { margin-bottom: 0; }
+        .ex-screener-tabs { display: flex; gap: 2px; }
+        .ex-screener-tab {
+          padding: 2px 8px; font-size: 10px; font-weight: 600;
+          border: 1px solid transparent; border-radius: 3px;
+          background: none; color: var(--color-text-muted); cursor: pointer;
+          transition: all 0.1s;
+        }
+        .ex-screener-tab:hover  { color: var(--color-text-secondary); border-color: var(--color-border); }
+        .ex-screener-tab.active { color: var(--color-gold); border-color: var(--color-gold-dim); background: var(--color-gold-subtle); }
+
         .ex-cols {
           display: grid;
           grid-template-columns: 320px 1fr;
@@ -353,6 +429,56 @@ export default function Exchange() {
           max-width: 420px; margin: 0 auto; line-height: 1.6;
         }
       `}</style>
+    </div>
+  )
+}
+
+interface BreadthData {
+  advancing: number; declining: number; unchanged: number
+  upVol: number; downVol: number; total: number
+}
+
+function MarketBreadthPanel({ breadth }: { breadth: BreadthData }) {
+  const advPct  = (breadth.advancing / breadth.total) * 100
+  const decPct  = (breadth.declining / breadth.total) * 100
+  const unchPct = 100 - advPct - decPct
+  const totalVol = breadth.upVol + breadth.downVol
+  const upVolPct = totalVol ? (breadth.upVol / totalVol) * 100 : 50
+
+  return (
+    <div className="ex-breadth">
+      <span className="ex-breadth-label">Breadth</span>
+      <div className="ex-breadth-stat">
+        <span className="ex-breadth-dot" style={{ background: 'var(--color-up)' }} />
+        <span style={{ color: 'var(--color-up)' }}>{breadth.advancing}</span>
+        <span style={{ color: 'var(--color-text-muted)' }}>adv</span>
+      </div>
+      <div className="ex-breadth-stat">
+        <span className="ex-breadth-dot" style={{ background: 'var(--color-down)' }} />
+        <span style={{ color: 'var(--color-down)' }}>{breadth.declining}</span>
+        <span style={{ color: 'var(--color-text-muted)' }}>dec</span>
+      </div>
+      {breadth.unchanged > 0 && (
+        <div className="ex-breadth-stat">
+          <span className="ex-breadth-dot" style={{ background: 'var(--color-text-muted)' }} />
+          <span style={{ color: 'var(--color-text-muted)' }}>{breadth.unchanged} unch</span>
+        </div>
+      )}
+      <div className="ex-breadth-bar-wrap" title={`${advPct.toFixed(0)}% advancing`}>
+        <div className="ex-breadth-seg" style={{ width: `${advPct}%`, background: 'var(--color-up)', opacity: 0.7 }} />
+        <div className="ex-breadth-seg" style={{ width: `${unchPct}%`, background: 'var(--color-border)' }} />
+        <div className="ex-breadth-seg" style={{ width: `${decPct}%`, background: 'var(--color-down)', opacity: 0.7 }} />
+      </div>
+      {totalVol > 0 && (
+        <>
+          <span className="ex-breadth-label" style={{ marginLeft: 4 }}>Vol</span>
+          <div className="ex-breadth-bar-wrap" title={`${upVolPct.toFixed(0)}% up-volume`}
+            style={{ maxWidth: 80 }}>
+            <div className="ex-breadth-seg" style={{ width: `${upVolPct}%`, background: 'var(--color-up)', opacity: 0.7 }} />
+            <div className="ex-breadth-seg" style={{ width: `${100 - upVolPct}%`, background: 'var(--color-down)', opacity: 0.7 }} />
+          </div>
+        </>
+      )}
     </div>
   )
 }

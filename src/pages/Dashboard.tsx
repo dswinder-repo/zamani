@@ -9,6 +9,7 @@ import TopMovers from '../components/market/TopMovers'
 import CommoditiesPanel from '../components/market/CommoditiesPanel'
 import WatchlistPanel from '../components/watchlist/WatchlistPanel'
 import NdebelePanel from '../components/patterns/NdebelePanel'
+import GlobalMarketsBar from '../components/market/GlobalMarketsBar'
 
 export default function Dashboard() {
   const { data: indices, isLoading: loadingIdx } = useQuery<IndexSnapshot[]>({
@@ -70,6 +71,9 @@ export default function Dashboard() {
           <NdebelePanel width={80} height={80} opacity={0.08} style={{ position: 'absolute', right: 0, top: 0 }} />
         </div>
       </div>
+
+      {/* Global markets bar */}
+      <GlobalMarketsBar />
 
       {/* Index cards strip */}
       <section className="dash-section">

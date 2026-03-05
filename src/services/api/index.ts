@@ -41,4 +41,5 @@ export const IS_DEMO_MODE = provider.name === 'mock' && import.meta.env.PROD
 export * from './types'
 export { getLiveForex }                          from './forex'
 export { getUSEQuotes, getUSEIndices, getUSEMovers } from './use'
-export { YAHOO_SUPPORTED_EXCHANGES }             from './yahoo'
+export { YAHOO_SUPPORTED_EXCHANGES, getGlobalMarkets } from './yahoo'
+export type { GlobalMarket }                     from './yahoo'

@@ -3,7 +3,8 @@ import { Star, X, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useWatchlist } from '../../stores/watchlist'
 import { provider } from '../../services/api'
-import type { Quote } from '../../services/api/types'
+import type { Quote, OHLCV } from '../../services/api/types'
+import Sparkline from '../charts/Sparkline'
 
 export default function WatchlistPanel() {
   const { symbols, remove } = useWatchlist()
@@ -11,12 +12,21 @@ export default function WatchlistPanel() {
   const [input, setInput]   = useState('')
   const { add } = useWatchlist()
 
-  const results = useQueries({
+  const quoteResults = useQueries({
     queries: symbols.map(sym => ({
       queryKey: ['quote', sym],
-      queryFn: () => provider.getQuote(sym),
+      queryFn:  () => provider.getQuote(sym),
       staleTime: 60_000,
       refetchInterval: 60_000,
+    })),
+  })
+
+  // Fetch 30-day history for sparklines (stale 5 min — non-critical)
+  const histResults = useQueries({
+    queries: symbols.map(sym => ({
+      queryKey: ['history', sym, 30],
+      queryFn:  () => provider.getHistory(sym, 30),
+      staleTime: 5 * 60_000,
     })),
   })
 
@@ -33,8 +43,11 @@ export default function WatchlistPanel() {
           <div className="wl-empty">No symbols — add one below</div>
         )}
         {symbols.map((sym, i) => {
-          const q = results[i]?.data as Quote | undefined
+          const q    = quoteResults[i]?.data as Quote | undefined
+          const hist = histResults[i]?.data  as OHLCV[] | undefined
           const isUp = (q?.changePct ?? 0) >= 0
+          const sparkData = hist?.map(d => d.close) ?? []
+
           return (
             <div key={sym} className="wl-row">
               <Star size={10} className="wl-star" />
@@ -42,6 +55,11 @@ export default function WatchlistPanel() {
                 <span className="wl-sym">{sym}</span>
                 {q?.exchange && <span className="wl-exch">{q.exchange}</span>}
               </div>
+              {sparkData.length >= 5 && (
+                <div className="wl-spark">
+                  <Sparkline data={sparkData} up={isUp} height={24} width={56} />
+                </div>
+              )}
               <div className="wl-price-col">
                 {q ? (
                   <>
@@ -98,7 +116,7 @@ export default function WatchlistPanel() {
 
         .wl-row {
           display: grid;
-          grid-template-columns: 10px 1fr auto 14px;
+          grid-template-columns: 10px 1fr 56px auto 14px;
           align-items: center;
           gap: 0.4rem;
           padding: 0.35rem 0;
@@ -121,6 +139,8 @@ export default function WatchlistPanel() {
           color: var(--color-text-muted);
           text-transform: uppercase;
         }
+
+        .wl-spark { display: flex; align-items: center; opacity: 0.85; }
 
         .wl-price-col {
           display: flex;

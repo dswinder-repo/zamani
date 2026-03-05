@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { provider, getLiveForex } from '../../services/api'
-import type { IndexSnapshot, ForexRate } from '../../services/api'
+import { provider, getLiveForex, getGlobalMarkets } from '../../services/api'
+import type { IndexSnapshot, ForexRate, GlobalMarket } from '../../services/api'
 
 interface TickItem {
   label: string
@@ -22,11 +22,32 @@ export default function TickerStrip() {
     staleTime: 60_000,
   })
 
+  const { data: globalMkts } = useQuery<GlobalMarket[]>({
+    queryKey: ['global-markets'],
+    queryFn:  getGlobalMarkets,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  })
+
+  // Show only the 4 most market-relevant global indices in the ticker
+  const TICKER_GLOBALS = new Set(['sp500', 'nasdaq', 'vix', 'dxy'])
+  const fmtGlobalVal = (m: GlobalMarket) => {
+    if (m.id === 'us10y') return m.value.toFixed(2) + '%'
+    if (m.id === 'vix' || m.id === 'dxy') return m.value.toFixed(2)
+    if (m.value >= 1000) return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(m.value)
+    return m.value.toFixed(2)
+  }
+
   const items: TickItem[] = [
     ...(indices ?? []).map(i => ({
       label: i.exchange,
       value: new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(i.value),
       pct:   i.changePct,
+    })),
+    ...(globalMkts ?? []).filter(m => TICKER_GLOBALS.has(m.id)).map(m => ({
+      label: m.name,
+      value: fmtGlobalVal(m),
+      pct:   m.id === 'vix' ? -m.changePct : m.changePct,  // VIX up = bad
     })),
     ...(forex ?? []).slice(0, 5).map(f => ({
       label: `${f.base}/${f.quote}`,

@@ -5,6 +5,7 @@ import { Star, ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react'
 import { provider } from '../services/api'
 import type { Quote, OHLCV, NewsItem } from '../services/api'
 import CandlestickChart from '../components/charts/CandlestickChart'
+import type { ChartIndicators } from '../components/charts/CandlestickChart'
 import { useWatchlist } from '../stores/watchlist'
 import { ExchangeStatusBadge } from '../components/layout/MarketStatus'
 
@@ -29,7 +30,12 @@ export default function StockDetail() {
   const { exchangeId = '', symbol: rawSymbol = '' } = useParams()
   const symbol = decodeURIComponent(rawSymbol)
   const [days, setDays] = useState(30)
+  const [indicators, setIndicators] = useState<ChartIndicators>({})
   const { symbols: watchlistSyms, add, remove } = useWatchlist()
+
+  function toggleIndicator(key: keyof ChartIndicators) {
+    setIndicators(prev => ({ ...prev, [key]: !prev[key] }))
+  }
   const inWatchlist = watchlistSyms.includes(symbol)
 
   const { data: quote } = useQuery<Quote>({
@@ -56,10 +62,15 @@ export default function StockDetail() {
   // Key stats from history
   const hiLo = history?.length
     ? {
-        high52: Math.max(...history.map(d => d.high)),
-        low52:  Math.min(...history.map(d => d.low)),
+        high: Math.max(...history.map(d => d.high)),
+        low:  Math.min(...history.map(d => d.low)),
         avgVol: Math.floor(history.reduce((s, d) => s + d.volume, 0) / history.length),
       }
+    : null
+
+  // 52-week range position (0–100) of current price within the period range
+  const rangePos = hiLo && quote
+    ? Math.max(0, Math.min(100, ((quote.price - hiLo.low) / (hiLo.high - hiLo.low)) * 100))
     : null
 
   return (
@@ -121,23 +132,37 @@ export default function StockDetail() {
         <div className="sd-chart-col">
           <div className="sd-chart-header">
             <span className="section-label">Price History</span>
-            <div className="sd-range-tabs">
-              {RANGE_OPTIONS.map(r => (
-                <button
-                  key={r.label}
-                  className={`sd-range-tab ${days === r.days ? 'active' : ''}`}
-                  onClick={() => setDays(r.days)}
-                >
-                  {r.label}
-                </button>
-              ))}
+            <div className="sd-chart-controls">
+              <div className="sd-range-tabs">
+                {RANGE_OPTIONS.map(r => (
+                  <button
+                    key={r.label}
+                    className={`sd-range-tab ${days === r.days ? 'active' : ''}`}
+                    onClick={() => setDays(r.days)}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <div className="sd-indicator-tabs">
+                {(['ma20', 'ma50', 'rsi'] as (keyof ChartIndicators)[]).map(k => (
+                  <button
+                    key={k}
+                    className={`sd-ind-tab ${indicators[k] ? 'active' : ''}`}
+                    onClick={() => toggleIndicator(k)}
+                  >
+                    {k.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           <div className="sd-chart panel">
             {histLoading
               ? <div className="sd-chart-loading">Loading chart…</div>
-              : <CandlestickChart data={history ?? []} currency={quote?.currency ?? 'USD'} height={280} />
+              : <CandlestickChart data={history ?? []} currency={quote?.currency ?? 'USD'}
+                  height={280} indicators={indicators} />
             }
           </div>
         </div>
@@ -156,9 +181,18 @@ export default function StockDetail() {
             </>}
             {hiLo && <>
               <div className="stat-divider" />
-              <StatRow label={`${days}d High`} value={hiLo.high52.toLocaleString('en-US', { minimumFractionDigits: 2 })} />
-              <StatRow label={`${days}d Low`}  value={hiLo.low52.toLocaleString('en-US',  { minimumFractionDigits: 2 })} />
-              <StatRow label="Avg Volume"  value={(hiLo.avgVol / 1_000).toFixed(0) + 'K'} />
+              <StatRow label={`${days}d High`} value={hiLo.high.toLocaleString('en-US', { minimumFractionDigits: 2 })} />
+              <StatRow label={`${days}d Low`}  value={hiLo.low.toLocaleString('en-US',  { minimumFractionDigits: 2 })} />
+              <StatRow label="Avg Volume"       value={(hiLo.avgVol / 1_000).toFixed(0) + 'K'} />
+              {rangePos != null && (
+                <div className="stat-range-bar">
+                  <span className="stat-range-lo">{hiLo.low.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                  <div className="stat-range-track">
+                    <div className="stat-range-fill" style={{ left: `${rangePos}%` }} />
+                  </div>
+                  <span className="stat-range-hi">{hiLo.high.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                </div>
+              )}
             </>}
           </div>
         </div>
@@ -247,6 +281,9 @@ export default function StockDetail() {
           font-size: 12px; color: var(--color-text-muted);
         }
 
+        /* Chart controls row */
+        .sd-chart-controls { display: flex; align-items: center; gap: 0.5rem; }
+
         /* Range tabs */
         .sd-range-tabs { display: flex; gap: 2px; }
         .sd-range-tab {
@@ -257,6 +294,17 @@ export default function StockDetail() {
         }
         .sd-range-tab:hover  { color: var(--color-text-secondary); border-color: var(--color-border); }
         .sd-range-tab.active { color: var(--color-gold); border-color: var(--color-gold-dim); background: var(--color-gold-subtle); }
+
+        /* Indicator toggle tabs */
+        .sd-indicator-tabs { display: flex; gap: 2px; border-left: 1px solid var(--color-border-subtle); padding-left: 0.5rem; }
+        .sd-ind-tab {
+          padding: 2px 6px; font-size: 9px; font-weight: 700;
+          border: 1px solid transparent; border-radius: 3px;
+          background: none; color: var(--color-text-muted);
+          cursor: pointer; transition: all 0.1s; letter-spacing: 0.04em;
+        }
+        .sd-ind-tab:hover  { color: var(--color-text-secondary); border-color: var(--color-border); }
+        .sd-ind-tab.active { color: var(--color-gold); border-color: var(--color-gold-dim); background: var(--color-gold-subtle); }
 
         /* Stats */
         .sd-stats { padding: 0; overflow: hidden; }
@@ -270,6 +318,25 @@ export default function StockDetail() {
         .stat-label { color: var(--color-text-muted); }
         .stat-value { color: var(--color-text-primary); font-weight: 600; }
         .stat-divider { height: 1px; background: var(--color-border); margin: 0.25rem 0; }
+
+        /* 52w range bar */
+        .stat-range-bar {
+          display: flex; align-items: center; gap: 4px;
+          padding: 0.375rem 0.75rem;
+          font-size: 9px; font-family: var(--font-mono);
+          color: var(--color-text-muted);
+        }
+        .stat-range-track {
+          flex: 1; height: 4px; background: var(--color-bg-tertiary);
+          border-radius: 2px; position: relative;
+        }
+        .stat-range-fill {
+          position: absolute; top: -2px;
+          width: 8px; height: 8px; border-radius: 50%;
+          background: var(--color-gold);
+          transform: translateX(-50%);
+        }
+        .stat-range-lo, .stat-range-hi { white-space: nowrap; }
 
         /* Section label */
         .section-label {
