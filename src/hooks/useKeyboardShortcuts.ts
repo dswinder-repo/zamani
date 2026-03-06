@@ -76,6 +76,7 @@ export function useKeyboardShortcuts() {
           case 'z': openDangote(); break
           case 'h': triggerHakuna(0); break
           case 'r': triggerCircle(0); break
+          case 'b': navigate('/jollof-war'); break
         }
         return
       }

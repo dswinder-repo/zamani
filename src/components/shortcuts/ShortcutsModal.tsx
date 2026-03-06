@@ -19,6 +19,7 @@ const SHORTCUTS = [
     { key: 'G I',  desc: 'Economic Indicators' },
     { key: 'G O',  desc: '🔮 Invoke the Oracle of Lagos' },
     { key: 'G L',  desc: '🦁 SIMBA! — manual lion toast' },
+    { key: 'G B',  desc: '🍚 The Great Jollof War' },
   ]},
   { group: 'General', items: [
     { key: '?',    desc: 'Show this keyboard shortcuts overlay' },

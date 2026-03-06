@@ -250,7 +250,7 @@ export default function Dashboard() {
               {[
                 { trigger: '↑↑↓↓←→←→BA', reveal: null,  name: 'Bloomberg Beast Mode',    desc: 'Konami code — activates a 30-day Bloomberg Terminal trial (fake)' },
                 { trigger: 'G O',          reveal: null,  name: 'Oracle of Lagos',          desc: 'Summons the keeper of African market wisdom for a prophecy' },
-                { trigger: '/jollof-war',  reveal: null,  name: 'The Great Jollof War',     desc: 'Nigeria vs Ghana — the eternal rice debate, settled by markets' },
+                { trigger: 'G B',          reveal: null,  name: 'The Great Jollof War',     desc: 'Nigeria vs Ghana — the eternal rice debate, settled by markets' },
                 { trigger: 'G L',          reveal: null,  name: 'SIMBA!',                   desc: 'Also fires automatically when a stock hits its 52-week high' },
                 { trigger: '[???]',        reveal: 'G Z', name: 'What Would Dangote Do?',   desc: 'Wisdom from Africa\'s richest person, delivered with authority' },
                 { trigger: '[???]',        reveal: 'G H', name: 'Hakuna Matata',             desc: 'Also fires automatically when your portfolio is down more than 5%' },
