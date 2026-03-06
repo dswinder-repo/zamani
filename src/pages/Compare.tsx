@@ -12,6 +12,29 @@ const EXCHANGES = ['jse', 'ngx', 'nse', 'gse', 'brvm', 'zse', 'bse', 'luse']
 
 const LINE_COLORS = ['#c9a84c', '#4ade80', '#60a5fa']
 
+function pearson(a: number[], b: number[]): number {
+  const n = Math.min(a.length, b.length)
+  if (n < 2) return 0
+  const meanA = a.slice(0, n).reduce((s, v) => s + v, 0) / n
+  const meanB = b.slice(0, n).reduce((s, v) => s + v, 0) / n
+  let num = 0, dA = 0, dB = 0
+  for (let i = 0; i < n; i++) {
+    num += (a[i] - meanA) * (b[i] - meanB)
+    dA  += (a[i] - meanA) ** 2
+    dB  += (b[i] - meanB) ** 2
+  }
+  const denom = Math.sqrt(dA * dB)
+  return denom === 0 ? 0 : +(num / denom).toFixed(3)
+}
+
+function corrColor(r: number): string {
+  if (r > 0.7)  return 'rgba(74,222,128,0.25)'
+  if (r > 0.3)  return 'rgba(74,222,128,0.10)'
+  if (r < -0.7) return 'rgba(248,113,113,0.25)'
+  if (r < -0.3) return 'rgba(248,113,113,0.10)'
+  return 'rgba(255,255,255,0.03)'
+}
+
 const TIMEFRAMES = [
   { label: '1M', days: 30 },
   { label: '3M', days: 90 },
@@ -197,7 +220,52 @@ export default function Compare() {
             <div className="cmp-loading">No history data for selected timeframe</div>
           )}
         </div>
-      ) : (
+      ) : null}
+
+      {/* Correlation matrix — shown when ≥2 stocks have loaded data */}
+      {(() => {
+        const readySeries = series.filter(s => s.normalized.length > 1)
+        if (readySeries.length < 2 || isLoading) return null
+        const closes = readySeries.map(s => s.normalized.map(p => p.value))
+        const n = readySeries.length
+        const matrix: number[][] = Array.from({ length: n }, (_, i) =>
+          Array.from({ length: n }, (_, j) => i === j ? 1 : pearson(closes[i], closes[j]))
+        )
+        return (
+          <div className="panel cmp-corr-card">
+            <div className="cmp-corr-head">Correlation Matrix</div>
+            <table className="cmp-matrix">
+              <thead>
+                <tr>
+                  <th />
+                  {readySeries.map((s, i) => {
+                    const idx = selections.findIndex(sel => sel.label === s.label)
+                    return <th key={i} className="cmp-matrix-th" style={{ color: LINE_COLORS[idx] }}>{s.label.split(' ')[0]}</th>
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {matrix.map((row, i) => {
+                  const idx = selections.findIndex(sel => sel.label === readySeries[i].label)
+                  return (
+                    <tr key={i}>
+                      <td className="cmp-matrix-th" style={{ color: LINE_COLORS[idx] }}>{readySeries[i].label.split(' ')[0]}</td>
+                      {row.map((r, j) => (
+                        <td key={j} className="cmp-matrix-cell" style={{ background: corrColor(r) }}>{r.toFixed(2)}</td>
+                      ))}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <p className="cmp-note cmp-corr-note">
+              Pearson correlation over {tf.label} period. Green = positive, red = negative, ≥|0.7| = strong.
+            </p>
+          </div>
+        )
+      })()}
+
+      {selections.length === 0 && (
         <div className="panel cmp-empty">
           <GitCompare size={28} style={{ opacity: 0.2, marginBottom: '0.75rem' }} />
           <p>Select stocks above to compare their performance</p>
@@ -276,6 +344,24 @@ export default function Compare() {
           align-items: center; font-size: 13px; color: var(--color-text-muted);
         }
         .cmp-empty p { margin: 0; }
+
+        /* Correlation matrix */
+        .cmp-corr-card { padding: 0.875rem 1rem 0.75rem; }
+        .cmp-corr-head {
+          font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+          color: var(--color-text-muted); font-weight: 600; margin-bottom: 0.75rem;
+        }
+        .cmp-matrix { border-collapse: collapse; font-size: 12px; font-family: var(--font-mono); width: auto; }
+        .cmp-matrix-th {
+          padding: 6px 12px; font-size: 10px; font-weight: 700;
+          text-align: left; color: var(--color-text-muted);
+        }
+        .cmp-matrix-cell {
+          padding: 6px 14px; text-align: center; font-weight: 600;
+          border: 1px solid var(--color-border-subtle); border-radius: 3px;
+          transition: background 0.2s;
+        }
+        .cmp-corr-note { margin-top: 0.5rem; }
       `}</style>
     </div>
   )

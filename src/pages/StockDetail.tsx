@@ -1,13 +1,23 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Star, ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react'
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { provider } from '../services/api'
 import type { Quote, OHLCV, NewsItem } from '../services/api'
 import CandlestickChart from '../components/charts/CandlestickChart'
 import type { ChartIndicators } from '../components/charts/CandlestickChart'
 import { useWatchlist } from '../stores/watchlist'
 import { ExchangeStatusBadge } from '../components/layout/MarketStatus'
+
+function computeHV(data: OHLCV[], period = 30): number | null {
+  if (data.length < period + 1) return null
+  const recent = data.slice(-period - 1)
+  const logRets = recent.slice(1).map((d, i) => Math.log(d.close / recent[i].close))
+  const mean = logRets.reduce((s, v) => s + v, 0) / logRets.length
+  const variance = logRets.reduce((s, v) => s + (v - mean) ** 2, 0) / logRets.length
+  return +(Math.sqrt(variance) * Math.sqrt(252) * 100).toFixed(1)
+}
 
 const RANGE_OPTIONS = [
   { label: '1W',  days: 7   },
@@ -26,6 +36,43 @@ function StatRow({ label, value }: { label: string; value: string | number }) {
   )
 }
 
+function fmtMarketCap(v: number): string {
+  if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`
+  if (v >= 1e9)  return `${(v / 1e9).toFixed(2)}B`
+  if (v >= 1e6)  return `${(v / 1e6).toFixed(2)}M`
+  return v.toLocaleString('en-US')
+}
+
+function IntradayChart({ data, currency }: { data: { t: string; price: number }[]; currency: string }) {
+  if (!data.length) return null
+  const first = data[0].price
+  const last  = data[data.length - 1].price
+  const up    = last >= first
+  const color = up ? 'var(--color-up)' : 'var(--color-down)'
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <AreaChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+        <defs>
+          <linearGradient id="intradayGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor={color} stopOpacity={0.25} />
+            <stop offset="95%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-subtle)" vertical={false} />
+        <XAxis dataKey="t" tick={{ fontSize: 9, fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}
+          tickLine={false} axisLine={{ stroke: 'var(--color-border-subtle)' }} interval="preserveStartEnd" />
+        <YAxis domain={['auto', 'auto']} tick={{ fontSize: 9, fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}
+          tickLine={false} axisLine={false} width={56} orientation="right"
+          tickFormatter={v => `${currency} ${v.toFixed(0)}`} />
+        <RechartsTooltip formatter={(v: number | undefined) => [`${currency} ${(v ?? 0).toFixed(2)}`, 'Price']}
+          contentStyle={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', borderRadius: 4, fontSize: 11 }} />
+        <Area type="monotone" dataKey="price" stroke={color} strokeWidth={1.5}
+          fill="url(#intradayGrad)" dot={false} isAnimationActive={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+}
+
 export default function StockDetail() {
   const { exchangeId = '', symbol: rawSymbol = '' } = useParams()
   const symbol = decodeURIComponent(rawSymbol)
@@ -37,6 +84,9 @@ export default function StockDetail() {
     setIndicators(prev => ({ ...prev, [key]: !prev[key] }))
   }
   const inWatchlist = watchlistSyms.includes(symbol)
+
+  // Intraday simulation state
+  const [showIntraday, setShowIntraday] = useState(false)
 
   const { data: quote } = useQuery<Quote>({
     queryKey: ['quote', symbol],
@@ -58,6 +108,26 @@ export default function StockDetail() {
   })
 
   const up = (quote?.changePct ?? 0) >= 0
+
+  // Historical volatility (30-day annualized)
+  const hv = useMemo(() => history ? computeHV(history) : null, [history])
+
+  // Intraday simulation — seeded deterministic random walk from last close
+  const intradayData = useMemo(() => {
+    if (!quote || !showIntraday) return []
+    const seed = quote.price
+    let price = seed
+    const pts: { t: string; price: number }[] = []
+    for (let m = 0; m < 390; m++) {
+      const x = Math.sin(m * 9973 + seed * 1234.5) * 0.5
+      price = Math.max(price * (1 + x * 0.0005), 0.01)
+      if (m % 10 === 0) {
+        const hhmm = `${String(9 + Math.floor((m + 30) / 60)).padStart(2, '0')}:${String((m + 30) % 60).padStart(2, '0')}`
+        pts.push({ t: hhmm, price: +price.toFixed(2) })
+      }
+    }
+    return pts
+  }, [quote, showIntraday])
 
   // Key stats from history
   const hiLo = history?.length
@@ -137,21 +207,29 @@ export default function StockDetail() {
                 {RANGE_OPTIONS.map(r => (
                   <button
                     key={r.label}
-                    className={`sd-range-tab ${days === r.days ? 'active' : ''}`}
-                    onClick={() => setDays(r.days)}
+                    className={`sd-range-tab ${!showIntraday && days === r.days ? 'active' : ''}`}
+                    onClick={() => { setShowIntraday(false); setDays(r.days) }}
                   >
                     {r.label}
                   </button>
                 ))}
+                <button
+                  className={`sd-range-tab ${showIntraday ? 'active' : ''}`}
+                  onClick={() => setShowIntraday(v => !v)}
+                  title="Simulated intraday view — not real prices"
+                >
+                  1D~
+                </button>
               </div>
               <div className="sd-indicator-tabs">
-                {(['ma20', 'ma50', 'bb', 'vwap', 'rsi'] as (keyof ChartIndicators)[]).map(k => (
+                {(['ma20', 'ma50', 'bb', 'vwap', 'rsi', 'linreg', 'patterns'] as (keyof ChartIndicators)[]).map(k => (
                   <button
                     key={k}
                     className={`sd-ind-tab ${indicators[k] ? 'active' : ''}`}
                     onClick={() => toggleIndicator(k)}
+                    title={k === 'linreg' ? 'Linear Regression' : k === 'patterns' ? 'Candlestick Patterns' : undefined}
                   >
-                    {k.toUpperCase()}
+                    {k === 'linreg' ? 'LR' : k === 'patterns' ? 'PAT' : k.toUpperCase()}
                   </button>
                 ))}
               </div>
@@ -159,11 +237,17 @@ export default function StockDetail() {
           </div>
 
           <div className="sd-chart panel">
-            {histLoading
-              ? <div className="sd-chart-loading">Loading chart…</div>
-              : <CandlestickChart data={history ?? []} currency={quote?.currency ?? 'USD'}
-                  height={280} indicators={indicators} />
-            }
+            {histLoading ? (
+              <div className="sd-chart-loading">Loading chart…</div>
+            ) : showIntraday ? (
+              <div className="sd-intraday">
+                <div className="sd-intraday-badge">⚠ SIMULATED INTRADAY — not real prices</div>
+                <IntradayChart data={intradayData} currency={quote?.currency ?? 'USD'} />
+              </div>
+            ) : (
+              <CandlestickChart data={history ?? []} currency={quote?.currency ?? 'USD'}
+                height={280} indicators={indicators} symbol={symbol} />
+            )}
           </div>
         </div>
 
@@ -179,11 +263,24 @@ export default function StockDetail() {
               <StatRow label="Currency"    value={quote.currency} />
               <StatRow label="Exchange"    value={quote.exchange} />
             </>}
+            {/* Fundamentals */}
+            {(quote?.pe != null || quote?.eps != null || quote?.divYield != null || quote?.mktCap != null) && (
+              <>
+                <div className="stat-divider" />
+                {quote?.pe       != null && <StatRow label="P/E Ratio"   value={quote.pe.toFixed(1)} />}
+                {quote?.eps      != null && <StatRow label="EPS (TTM)"   value={quote.eps.toFixed(2)} />}
+                {quote?.divYield != null && <StatRow label="Div Yield"   value={`${quote.divYield.toFixed(2)}%`} />}
+                {quote?.mktCap   != null && <StatRow label="Market Cap"  value={fmtMarketCap(quote.mktCap)} />}
+                {quote?.high52   != null && <StatRow label="52w High"    value={quote.high52.toLocaleString('en-US', { minimumFractionDigits: 2 })} />}
+                {quote?.low52    != null && <StatRow label="52w Low"     value={quote.low52.toLocaleString('en-US',  { minimumFractionDigits: 2 })} />}
+              </>
+            )}
             {hiLo && <>
               <div className="stat-divider" />
               <StatRow label={`${days}d High`} value={hiLo.high.toLocaleString('en-US', { minimumFractionDigits: 2 })} />
               <StatRow label={`${days}d Low`}  value={hiLo.low.toLocaleString('en-US',  { minimumFractionDigits: 2 })} />
               <StatRow label="Avg Volume"       value={(hiLo.avgVol / 1_000).toFixed(0) + 'K'} />
+              {hv != null && <StatRow label="HV 30d Ann."  value={`${hv}%`} />}
               {rangePos != null && (
                 <div className="stat-range-bar">
                   <span className="stat-range-lo">{hiLo.low.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
@@ -342,6 +439,15 @@ export default function StockDetail() {
         .section-label {
           font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
           color: var(--color-text-muted); font-weight: 600; margin-bottom: 0.5rem;
+        }
+
+        /* Intraday */
+        .sd-intraday { }
+        .sd-intraday-badge {
+          font-size: 10px; font-weight: 700; text-transform: uppercase;
+          letter-spacing: 0.06em; color: #f59e0b;
+          padding: 3px 8px; background: rgba(245,158,11,0.1); border-radius: 3px;
+          margin-bottom: 8px; display: inline-block;
         }
 
         /* News */

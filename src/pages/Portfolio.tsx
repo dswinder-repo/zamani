@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { PlusCircle, Trash2, Briefcase, Download } from 'lucide-react'
 import { downloadCSV } from '../utils/csvExport'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+         PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts'
 import { usePortfolio, type Transaction } from '../stores/portfolio'
 import { provider } from '../services/api'
 import type { Quote, OHLCV } from '../services/api'
@@ -295,6 +296,75 @@ export default function Portfolio() {
         </div>
       )}
 
+      {/* Allocation donut */}
+      {enriched.length > 0 && (() => {
+        const DONUT_COLORS = ['#c9a84c','#4ade80','#60a5fa','#f472b6','#fb923c','#a78bfa','#34d399','#f87171','#38bdf8','#facc15']
+        const donutData = enriched
+          .map(h => ({ name: h.symbol, value: +h.currentValue.toFixed(2) }))
+          .sort((a, b) => b.value - a.value)
+        return (
+          <div className="port-alloc panel">
+            <div className="section-label">Allocation</div>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={donutData} dataKey="value" nameKey="name"
+                  cx="50%" cy="50%" innerRadius={55} outerRadius={80}
+                  paddingAngle={2} isAnimationActive={false}>
+                  {donutData.map((_, i) => (
+                    <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v: number | undefined) => [(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 }), 'Value']}
+                  contentStyle={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', borderRadius: 4, fontSize: 11 }}
+                />
+                <Legend wrapperStyle={{ fontSize: 10, fontFamily: 'var(--font-mono)' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )
+      })()}
+
+      {/* Monthly P&L heatmap */}
+      {transactions.length > 1 && (() => {
+        const byMonth: Record<string, number> = {}
+        for (const t of transactions) {
+          const ym = t.date.slice(0, 7) // 'YYYY-MM'
+          const delta = t.type === 'buy' ? -(t.shares * t.price) : t.shares * t.price
+          byMonth[ym] = (byMonth[ym] ?? 0) + delta
+        }
+        const monthData = Object.entries(byMonth)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([ym, pnl]) => {
+            const [y, m] = ym.split('-')
+            const label = new Date(+y, +m - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+            return { label, pnl: +pnl.toFixed(2) }
+          })
+        if (monthData.length < 2) return null
+        return (
+          <div className="port-pnl-chart panel">
+            <div className="section-label">Monthly P&L</div>
+            <ResponsiveContainer width="100%" height={120}>
+              <BarChart data={monthData} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-subtle)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}
+                  tickLine={false} axisLine={{ stroke: 'var(--color-border-subtle)' }} />
+                <YAxis tick={{ fontSize: 9, fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}
+                  tickLine={false} axisLine={false} width={56} orientation="right"
+                  tickFormatter={v => v.toLocaleString('en-US', { notation: 'compact' })} />
+                <Tooltip formatter={(v: number | undefined) => [(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 }), 'P&L']}
+                  contentStyle={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', borderRadius: 4, fontSize: 11 }} />
+                <Bar dataKey="pnl" radius={[2, 2, 0, 0]} isAnimationActive={false}>
+                  {monthData.map((d, i) => (
+                    <Cell key={i} fill={d.pnl >= 0 ? 'var(--color-up)' : 'var(--color-down)'} fillOpacity={0.8} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )
+      })()}
+
       {/* Tabs */}
       <div className="port-tabs">
         {(['holdings', 'transactions'] as const).map(t => (
@@ -459,7 +529,9 @@ export default function Portfolio() {
         .ps-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); font-weight: 600; margin-bottom: 0.25rem; }
         .ps-value { font-size: 16px; font-weight: 800; color: var(--color-text-primary); }
 
-        .port-chart { padding: 0.75rem 0.5rem 0.5rem; }
+        .port-chart    { padding: 0.75rem 0.5rem 0.5rem; }
+        .port-alloc    { padding: 0.75rem 0.5rem 0.5rem; }
+        .port-pnl-chart { padding: 0.75rem 0.5rem 0.5rem; }
 
         .section-label {
           font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;

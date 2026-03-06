@@ -3,7 +3,9 @@ import Topbar from './Topbar'
 import Sidebar from './Sidebar'
 import TickerStrip from './TickerStrip'
 import CommandPalette from '../search/CommandPalette'
+import ShortcutsModal from '../shortcuts/ShortcutsModal'
 import { useCommandPalette } from '../../hooks/useCommandPalette'
+import { useShortcutsModal } from '../../stores/shortcutsModal'
 import { useAlertWatcher } from '../../hooks/useAlertWatcher'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import { applyStoredTheme } from '../../stores/theme'
@@ -17,6 +19,7 @@ export default function Shell({ children }: ShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const { isOpen, open, close } = useCommandPalette()
+  const shortcutsOpen = useShortcutsModal(s => s.isOpen)
 
   useAlertWatcher()
   useKeyboardShortcuts()
@@ -44,6 +47,7 @@ export default function Shell({ children }: ShellProps) {
         </main>
       </div>
       {isOpen && <CommandPalette onClose={close} />}
+      {shortcutsOpen && <ShortcutsModal />}
 
       <style>{`
         .shell {

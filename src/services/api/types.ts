@@ -11,6 +11,12 @@ export interface Quote {
   currency:   string
   exchange:   string
   timestamp:  number      // unix ms
+  // Fundamentals (optional — only populated by individual getQuote calls)
+  pe?:        number      // trailing P/E ratio
+  divYield?:  number      // annual dividend yield (%)
+  high52?:    number      // 52-week high
+  low52?:     number      // 52-week low
+  eps?:       number      // trailing EPS
 }
 
 export interface OHLCV {

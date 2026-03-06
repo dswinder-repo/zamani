@@ -281,9 +281,17 @@ export const yahooProvider: MarketProvider = {
       price,
       change,
       changePct,
+      volume:    meta.regularMarketVolume,
       currency:  meta.currency ?? 'ZAR',
       exchange:  meta.exchangeName ?? 'JSE',
       timestamp: Date.now(),
+      // Fundamentals
+      pe:        meta.trailingPE      != null ? +meta.trailingPE.toFixed(2)                          : undefined,
+      divYield:  meta.trailingAnnualDividendYield != null ? +(meta.trailingAnnualDividendYield * 100).toFixed(2) : undefined,
+      high52:    meta.fiftyTwoWeekHigh != null ? +meta.fiftyTwoWeekHigh.toFixed(2)                    : undefined,
+      low52:     meta.fiftyTwoWeekLow  != null ? +meta.fiftyTwoWeekLow.toFixed(2)                     : undefined,
+      eps:       meta.epsTrailingTwelveMonths != null ? +meta.epsTrailingTwelveMonths.toFixed(2)       : undefined,
+      mktCap:    meta.marketCap,
     }
   },
 

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useShortcutsModal } from '../stores/shortcutsModal'
 
 /**
  * Global keyboard shortcuts for Zamani.
@@ -20,6 +21,7 @@ import { useNavigate } from 'react-router-dom'
  */
 export function useKeyboardShortcuts() {
   const navigate = useNavigate()
+  const openShortcuts = useShortcutsModal(s => s.open)
 
   useEffect(() => {
     let pendingG = false
@@ -54,6 +56,8 @@ export function useKeyboardShortcuts() {
           case 'a': navigate('/alerts'); break
           case 'c': navigate('/calendar'); break
           case 'm': navigate('/monitor'); break
+          case 's': navigate('/screener'); break
+          case 'i': navigate('/economic-indicators'); break
         }
         return
       }
@@ -61,6 +65,11 @@ export function useKeyboardShortcuts() {
       if (key === 'g') {
         pendingG = true
         timer = setTimeout(clearG, 1000)
+        return
+      }
+
+      if (key === '?') {
+        openShortcuts()
       }
     }
 
@@ -69,5 +78,5 @@ export function useKeyboardShortcuts() {
       document.removeEventListener('keydown', handler)
       clearG()
     }
-  }, [navigate])
+  }, [navigate, openShortcuts])
 }

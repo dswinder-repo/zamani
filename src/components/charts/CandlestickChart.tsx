@@ -2,16 +2,20 @@
  * Candlestick / OHLCV chart using Recharts ComposedChart.
  * Supports optional MA20, MA50 overlays and an RSI(14) sub-panel.
  */
+import { useRef } from 'react'
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
          ResponsiveContainer, ReferenceLine } from 'recharts'
+import { Download } from 'lucide-react'
 import type { OHLCV } from '../../services/api/types'
 
 export interface ChartIndicators {
-  ma20?: boolean
-  ma50?: boolean
-  rsi?:  boolean
-  bb?:   boolean
-  vwap?: boolean
+  ma20?:     boolean
+  ma50?:     boolean
+  rsi?:      boolean
+  bb?:       boolean
+  vwap?:     boolean
+  linreg?:   boolean
+  patterns?: boolean
 }
 
 interface CandlestickChartProps {
@@ -19,6 +23,7 @@ interface CandlestickChartProps {
   height?:     number
   currency?:   string
   indicators?: ChartIndicators
+  symbol?:     string
 }
 
 function fmt(ts: number) {
@@ -63,6 +68,72 @@ function computeVWAP(data: OHLCV[]): (number | null)[] {
   })
 }
 
+function computeLinReg(data: OHLCV[]): number[] {
+  const n   = data.length
+  const ys  = data.map(d => d.close)
+  const sumX  = (n * (n - 1)) / 2
+  const sumX2 = (n * (n - 1) * (2 * n - 1)) / 6
+  const sumY  = ys.reduce((s, v) => s + v, 0)
+  const sumXY = ys.reduce((s, v, i) => s + i * v, 0)
+  const denom = n * sumX2 - sumX * sumX
+  if (denom === 0) return ys
+  const slope     = (n * sumXY - sumX * sumY) / denom
+  const intercept = (sumY - slope * sumX) / n
+  return ys.map((_, i) => +(slope * i + intercept).toFixed(2))
+}
+
+type PatternLabel = 'doji' | 'hammer' | 'shooting_star' | 'bullish_engulfing' | 'bearish_engulfing' | null
+
+function detectPattern(data: OHLCV[], i: number): PatternLabel {
+  const d = data[i]
+  const body   = Math.abs(d.close - d.open)
+  const range  = d.high - d.low
+  if (range === 0) return null
+
+  // Doji: very small body relative to range
+  if (body / range < 0.1 && range > 0) return 'doji'
+
+  const upperShadow = d.high - Math.max(d.open, d.close)
+  const lowerShadow = Math.min(d.open, d.close) - d.low
+
+  // Hammer: lower shadow > 2× body, tiny upper shadow, bearish prior candle
+  if (lowerShadow > 2 * body && upperShadow < body * 0.5 && body > 0) return 'hammer'
+
+  // Shooting star: upper shadow > 2× body, tiny lower shadow
+  if (upperShadow > 2 * body && lowerShadow < body * 0.5 && body > 0) return 'shooting_star'
+
+  if (i > 0) {
+    const prev = data[i - 1]
+    const prevBearish = prev.close < prev.open
+    const prevBullish = prev.close > prev.open
+
+    // Bullish engulfing: prev bearish, current bullish and engulfs
+    if (prevBearish && d.close > d.open && d.open < prev.close && d.close > prev.open) {
+      return 'bullish_engulfing'
+    }
+    // Bearish engulfing: prev bullish, current bearish and engulfs
+    if (prevBullish && d.close < d.open && d.open > prev.close && d.close < prev.open) {
+      return 'bearish_engulfing'
+    }
+  }
+  return null
+}
+
+function isBullishPattern(p: PatternLabel): boolean {
+  return p === 'hammer' || p === 'bullish_engulfing'
+}
+
+function patternShortLabel(p: PatternLabel): string {
+  switch (p) {
+    case 'doji':              return 'D'
+    case 'hammer':            return 'H'
+    case 'shooting_star':     return 'SS'
+    case 'bullish_engulfing': return 'BE'
+    case 'bearish_engulfing': return 'BE'
+    default: return ''
+  }
+}
+
 function computeRSI(data: OHLCV[], period = 14): (number | null)[] {
   const result: (number | null)[] = []
   for (let i = 0; i < data.length; i++) {
@@ -87,6 +158,7 @@ function CustomTooltip({ active, payload, currency = 'USD' }: any) {
   const d = payload[0]?.payload as OHLCV & {
     date: string; ma20?: number; ma50?: number; rsi?: number
     bbUpperAbs?: number; bbLowerAbs?: number; vwapAbs?: number
+    linregAbs?: number; patternLabel?: string
   }
   if (!d) return null
 
@@ -124,6 +196,8 @@ function CustomTooltip({ active, payload, currency = 'USD' }: any) {
         <div style={{ color: '#06b6d4', marginTop: 2 }}>BB {d.bbLowerAbs.toFixed(2)}–{d.bbUpperAbs.toFixed(2)}</div>
       )}
       {d.vwapAbs != null && <div style={{ color: '#8b5cf6', marginTop: 2 }}>VWAP {fmtPrice(d.vwapAbs, currency)}</div>}
+      {d.linregAbs != null && <div style={{ color: '#fb923c', marginTop: 2 }}>LinReg {fmtPrice(d.linregAbs, currency)}</div>}
+      {d.patternLabel != null && <div style={{ color: 'var(--color-text-muted)', marginTop: 2 }}>Pattern: {d.patternLabel.replace(/_/g, ' ')}</div>}
     </div>
   )
 }
@@ -148,7 +222,38 @@ function RSITooltip({ active, payload }: any) {
 
 // ── Main chart ─────────────────────────────────────────────────────────────
 
-export default function CandlestickChart({ data, height = 240, currency = 'USD', indicators = {} }: CandlestickChartProps) {
+export default function CandlestickChart({ data, height = 240, currency = 'USD', indicators = {}, symbol = 'chart' }: CandlestickChartProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  function downloadSVG() {
+    const svgEl = containerRef.current?.querySelector('svg')
+    if (!svgEl) return
+    const clone = svgEl.cloneNode(true) as SVGElement
+    clone.setAttribute('style', 'background:#0a0a0a')
+    const svgStr = new XMLSerializer().serializeToString(clone)
+    const img = new Image()
+    const blob = new Blob([svgStr], { type: 'image/svg+xml' })
+    const url  = URL.createObjectURL(blob)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width  = img.naturalWidth  || svgEl.clientWidth  || 800
+      canvas.height = img.naturalHeight || svgEl.clientHeight || 400
+      const ctx = canvas.getContext('2d')!
+      ctx.fillStyle = '#0a0a0a'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0)
+      canvas.toBlob(b => {
+        if (!b) return
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(b)
+        a.download = `${symbol}-chart.png`
+        a.click()
+      })
+      URL.revokeObjectURL(url)
+    }
+    img.src = url
+  }
+
   if (!data.length) {
     return (
       <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -158,14 +263,16 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
     )
   }
 
-  const minVal   = Math.min(...data.map(d => d.low))  * 0.999
-  const maxVal   = Math.max(...data.map(d => d.high)) * 1.001
-  const ma20vals = indicators.ma20 ? computeMA(data, 20) : []
-  const ma50vals = indicators.ma50 ? computeMA(data, 50) : []
-  const rsiVals  = indicators.rsi  ? computeRSI(data)    : []
-  const bbVals   = indicators.bb   ? computeBB(data)     : { upper: [] as (number|null)[], lower: [] as (number|null)[] }
-  const vwapVals = indicators.vwap ? computeVWAP(data)   : []
-  const showRSI  = indicators.rsi && rsiVals.some(v => v != null)
+  const minVal    = Math.min(...data.map(d => d.low))  * 0.999
+  const maxVal    = Math.max(...data.map(d => d.high)) * 1.001
+  const priceSpan = maxVal - minVal
+  const ma20vals  = indicators.ma20     ? computeMA(data, 20) : []
+  const ma50vals  = indicators.ma50     ? computeMA(data, 50) : []
+  const rsiVals   = indicators.rsi      ? computeRSI(data)    : []
+  const bbVals    = indicators.bb       ? computeBB(data)     : { upper: [] as (number|null)[], lower: [] as (number|null)[] }
+  const vwapVals  = indicators.vwap     ? computeVWAP(data)   : []
+  const linregVals = indicators.linreg  ? computeLinReg(data) : []
+  const showRSI   = indicators.rsi && rsiVals.some(v => v != null)
 
   const chartData = data.map((d, i) => ({
     ...d,
@@ -187,12 +294,37 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
       vwap:    (vwapVals[i] as number) - minVal,
       vwapAbs: vwapVals[i],
     } : {}),
+    ...(indicators.linreg ? { linreg: linregVals[i] - minVal, linregAbs: linregVals[i] } : {}),
+    ...(indicators.patterns ? (() => {
+      const pat = detectPattern(data, i)
+      if (!pat) return {}
+      const bullish = isBullishPattern(pat)
+      return {
+        patternPrice: bullish ? d.low - minVal - priceSpan * 0.03 : d.high - minVal + priceSpan * 0.03,
+        patternLabel: pat,
+        patternBull:  bullish,
+      }
+    })() : {}),
   }))
 
   const mainHeight = showRSI ? height - 80 : height
 
   return (
-    <div>
+    <div ref={containerRef}>
+      {/* Download button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 2 }}>
+        <button onClick={downloadSVG} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px',
+          color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 3,
+          fontSize: 10, borderRadius: 3, transition: 'color 0.1s',
+        }}
+        title="Download chart as PNG"
+        onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text-primary)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-muted)')}
+        >
+          <Download size={10} /> PNG
+        </button>
+      </div>
       {/* Main OHLC chart */}
       <ResponsiveContainer width="100%" height={mainHeight}>
         <ComposedChart data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
@@ -264,6 +396,37 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
             <Line type="monotone" dataKey="vwap" stroke="#8b5cf6" strokeWidth={1.5}
               dot={false} isAnimationActive={false} connectNulls />
           )}
+          {/* Linear regression trendline */}
+          {indicators.linreg && (
+            <Line type="monotone" dataKey="linreg" stroke="#fb923c" strokeWidth={1.5}
+              dot={false} isAnimationActive={false} strokeDasharray="6 3" />
+          )}
+          {/* Candlestick pattern markers */}
+          {indicators.patterns && (
+            <Line
+              type="linear"
+              dataKey="patternPrice"
+              stroke="transparent"
+              dot={(props: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                if (!props.payload?.patternLabel) return <g key={props.key} />
+                const { cx, cy, payload } = props
+                const bull  = payload.patternBull
+                const label = patternShortLabel(payload.patternLabel)
+                const color = bull ? 'var(--color-up)' : 'var(--color-down)'
+                return (
+                  <g key={props.key}>
+                    <circle cx={cx} cy={cy} r={4} fill={color} fillOpacity={0.8} />
+                    <text x={cx} y={bull ? cy + 11 : cy - 6} fontSize={7}
+                      textAnchor="middle" fill={color} fontFamily="var(--font-mono)" fontWeight="700">
+                      {label}
+                    </text>
+                  </g>
+                )
+              }}
+              isAnimationActive={false}
+              legendType="none"
+            />
+          )}
         </ComposedChart>
       </ResponsiveContainer>
 
@@ -296,13 +459,15 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
       )}
 
       {/* Indicator legend */}
-      {(indicators.ma20 || indicators.ma50 || indicators.bb || indicators.vwap) && (
+      {(indicators.ma20 || indicators.ma50 || indicators.bb || indicators.vwap || indicators.linreg || indicators.patterns) && (
         <div style={{ display: 'flex', gap: '0.75rem', padding: '4px 4px 0', fontSize: 10, fontFamily: 'var(--font-mono)', flexWrap: 'wrap' }}>
-          {indicators.ma20 && <span style={{ color: '#60a5fa' }}>─ MA20</span>}
-          {indicators.ma50 && <span style={{ color: '#f59e0b' }}>╌ MA50</span>}
-          {indicators.bb   && <span style={{ color: '#06b6d4' }}>╌ BB(20)</span>}
-          {indicators.vwap && <span style={{ color: '#8b5cf6' }}>─ VWAP</span>}
-          {showRSI         && <span style={{ color: '#a78bfa' }}>─ RSI(14)</span>}
+          {indicators.ma20     && <span style={{ color: '#60a5fa' }}>─ MA20</span>}
+          {indicators.ma50     && <span style={{ color: '#f59e0b' }}>╌ MA50</span>}
+          {indicators.bb       && <span style={{ color: '#06b6d4' }}>╌ BB(20)</span>}
+          {indicators.vwap     && <span style={{ color: '#8b5cf6' }}>─ VWAP</span>}
+          {showRSI             && <span style={{ color: '#a78bfa' }}>─ RSI(14)</span>}
+          {indicators.linreg   && <span style={{ color: '#fb923c' }}>╌ LinReg</span>}
+          {indicators.patterns && <span style={{ color: 'var(--color-text-muted)' }}>● Patterns</span>}
         </div>
       )}
     </div>

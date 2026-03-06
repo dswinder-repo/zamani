@@ -13,7 +13,9 @@ const Alerts      = lazy(() => import('./pages/Alerts'))
 const Calendar    = lazy(() => import('./pages/Calendar'))
 const Compare     = lazy(() => import('./pages/Compare'))
 const NotFound    = lazy(() => import('./pages/NotFound'))
-const Monitor     = lazy(() => import('./pages/Monitor'))
+const Monitor              = lazy(() => import('./pages/Monitor'))
+const Screener             = lazy(() => import('./pages/Screener'))
+const EconomicIndicators   = lazy(() => import('./pages/EconomicIndicators'))
 
 function PageLoader() {
   return (
@@ -42,6 +44,8 @@ export default function App() {
           <Route path="/calendar"                            element={<Calendar />} />
           <Route path="/compare"                             element={<Compare />} />
           <Route path="/monitor"                             element={<Monitor />} />
+          <Route path="/screener"                            element={<Screener />} />
+          <Route path="/economic-indicators"                 element={<EconomicIndicators />} />
           <Route path="*"                                    element={<NotFound />} />
         </Routes>
       </Suspense>
