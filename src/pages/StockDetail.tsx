@@ -145,7 +145,7 @@ export default function StockDetail() {
                 ))}
               </div>
               <div className="sd-indicator-tabs">
-                {(['ma20', 'ma50', 'rsi'] as (keyof ChartIndicators)[]).map(k => (
+                {(['ma20', 'ma50', 'bb', 'vwap', 'rsi'] as (keyof ChartIndicators)[]).map(k => (
                   <button
                     key={k}
                     className={`sd-ind-tab ${indicators[k] ? 'active' : ''}`}

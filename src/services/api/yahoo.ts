@@ -104,6 +104,35 @@ const GLOBAL_MARKET_DEFS: { id: string; symbol: string; name: string; region: st
   { id: 'hsi',    symbol: '^HSI',     name: 'HANG SENG', region: 'HK' },
 ]
 
+// ── Yield curve definitions ───────────────────────────────────────────────────
+
+export interface YieldPoint {
+  maturity: string   // e.g. "3M"
+  label:    string   // e.g. "3 Month"
+  yield:    number   // percentage
+}
+
+const YIELD_DEFS: { maturity: string; label: string; symbol: string }[] = [
+  { maturity: '3M',  label: '3 Month',  symbol: '^IRX' },
+  { maturity: '2Y',  label: '2 Year',   symbol: '^UST2Y' },
+  { maturity: '5Y',  label: '5 Year',   symbol: '^FVX'  },
+  { maturity: '10Y', label: '10 Year',  symbol: '^TNX'  },
+  { maturity: '30Y', label: '30 Year',  symbol: '^TYX'  },
+]
+
+export async function getYieldCurve(): Promise<YieldPoint[]> {
+  const symbols = YIELD_DEFS.map(d => d.symbol)
+  const quotes  = await batchQuote(symbols)
+  const bySymbol = new Map(quotes.map(q => [q.symbol, q]))
+  return YIELD_DEFS
+    .map(def => {
+      const q = bySymbol.get(def.symbol)
+      if (!q?.regularMarketPrice) return null
+      return { maturity: def.maturity, label: def.label, yield: +q.regularMarketPrice.toFixed(3) }
+    })
+    .filter((p): p is YieldPoint => p !== null)
+}
+
 export async function getGlobalMarkets(): Promise<GlobalMarket[]> {
   const symbols = GLOBAL_MARKET_DEFS.map(d => d.symbol)
   const quotes  = await batchQuote(symbols)

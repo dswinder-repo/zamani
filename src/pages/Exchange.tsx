@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bookmark, BookmarkCheck, X } from 'lucide-react'
+import { Bookmark, BookmarkCheck, X, Download } from 'lucide-react'
 import { provider, getUSEQuotes, getUSEIndices, getUSEMovers, YAHOO_SUPPORTED_EXCHANGES } from '../services/api'
+import { downloadCSV } from '../utils/csvExport'
 import type { IndexSnapshot, Quote } from '../services/api'
 import IndexCard from '../components/market/IndexCard'
 import TopMovers from '../components/market/TopMovers'
@@ -79,6 +80,15 @@ export default function Exchange() {
     if (screenerFilter === 'active')  list = [...list].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0)).slice(0, 15)
     return list
   }, [stocks, activeSector, screenerFilter, id])
+
+  // Hot movers (|changePct| >= 2%)
+  const hotMovers = useMemo(() => {
+    if (!stocks?.length) return []
+    return [...stocks]
+      .filter(s => Math.abs(s.changePct) >= 2)
+      .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
+      .slice(0, 12)
+  }, [stocks])
 
   // Market breadth stats
   const breadth = useMemo(() => {
@@ -220,6 +230,24 @@ export default function Exchange() {
         </div>
       )}
 
+      {/* What's Moving banner — live exchanges only */}
+      {isLive && hotMovers.length > 0 && !stocksLoading && (
+        <div className="ex-moving-wrap">
+          <span className="ex-moving-label">Moving</span>
+          <div className="ex-moving-strip">
+            {hotMovers.map(s => {
+              const up = s.changePct >= 0
+              return (
+                <span key={s.symbol} className={`ex-moving-chip ${up ? 'up' : 'down'}`}>
+                  <span className="ex-moving-sym">{s.symbol}</span>
+                  <span className="ex-moving-pct">{up ? '+' : ''}{s.changePct.toFixed(2)}%</span>
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Market Breadth panel — live exchanges only */}
       {isLive && breadth && !stocksLoading && (
         <MarketBreadthPanel breadth={breadth} />
@@ -251,6 +279,21 @@ export default function Exchange() {
                     {f === 'active' ? 'Most Active' : f.charAt(0).toUpperCase() + f.slice(1)}
                   </button>
                 ))}
+                {filteredStocks.length > 0 && (
+                  <button
+                    className="ex-screener-tab"
+                    title="Export CSV"
+                    onClick={() => {
+                      const rows: (string | number)[][] = [
+                        ['Symbol', 'Name', 'Price', 'Change', 'Change %', 'Volume', 'Currency'],
+                        ...filteredStocks.map(s => [s.symbol, s.name, s.price, s.change, s.changePct, s.volume ?? '', s.currency]),
+                      ]
+                      downloadCSV(rows, `${id.toUpperCase()}-stocks.csv`)
+                    }}
+                  >
+                    <Download size={10} />
+                  </button>
+                )}
               </div>
             </div>
             <StocksTable
@@ -349,6 +392,37 @@ export default function Exchange() {
           opacity: 0.6; transition: opacity 0.1s;
         }
         .ex-preset-del:hover { opacity: 1; }
+
+        /* What's Moving banner */
+        .ex-moving-wrap {
+          display: flex; align-items: center; gap: 0.5rem;
+          padding: 0.375rem 0.75rem;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border-subtle);
+          border-radius: 4px; overflow: hidden;
+        }
+        .ex-moving-label {
+          font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
+          font-weight: 700; color: var(--color-text-muted);
+          white-space: nowrap; flex-shrink: 0;
+        }
+        .ex-moving-strip {
+          display: flex; gap: 0.375rem; overflow-x: auto;
+          scrollbar-width: none; -ms-overflow-style: none;
+        }
+        .ex-moving-strip::-webkit-scrollbar { display: none; }
+        .ex-moving-chip {
+          display: inline-flex; align-items: center; gap: 0.25rem;
+          padding: 2px 6px; border-radius: 3px;
+          font-family: var(--font-mono); font-size: 10px; white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .ex-moving-chip.up   { background: var(--color-up-subtle);   border: 1px solid rgba(74,222,128,0.2); }
+        .ex-moving-chip.down { background: var(--color-down-subtle); border: 1px solid rgba(248,113,113,0.2); }
+        .ex-moving-sym  { font-weight: 700; color: var(--color-text-primary); }
+        .ex-moving-pct.up, .ex-moving-chip.up .ex-moving-pct   { color: var(--color-up); }
+        .ex-moving-chip.up .ex-moving-pct   { color: var(--color-up); }
+        .ex-moving-chip.down .ex-moving-pct { color: var(--color-down); }
 
         /* Market breadth */
         .ex-breadth {

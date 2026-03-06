@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useQueries } from '@tanstack/react-query'
-import { PlusCircle, Trash2, Briefcase } from 'lucide-react'
+import { useQueries, useQuery } from '@tanstack/react-query'
+import { PlusCircle, Trash2, Briefcase, Download } from 'lucide-react'
+import { downloadCSV } from '../utils/csvExport'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { usePortfolio, type Transaction } from '../stores/portfolio'
 import { provider } from '../services/api'
-import type { Quote } from '../services/api'
+import type { Quote, OHLCV } from '../services/api'
 
 // ── Add Transaction Modal ─────────────────────────────────────────────────────
 
@@ -185,7 +186,29 @@ export default function Portfolio() {
   const totalPct   = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
   const portfolioUp = totalPnl >= 0
 
-  // Fake sparkline for portfolio value history (from transactions)
+  // Benchmark: JSE Top 40 (^J200) return since earliest transaction
+  const earliestDate = transactions.length
+    ? [...transactions].sort((a, b) => a.date.localeCompare(b.date))[0].date
+    : null
+
+  const { data: benchmarkHistory } = useQuery<OHLCV[]>({
+    queryKey: ['history', '^J200', 365],
+    queryFn:  () => provider.getHistory('^J200', 365),
+    staleTime: 60 * 60_000,
+    enabled:  !!earliestDate && holdings.length > 0,
+  })
+
+  const benchmarkReturn = (() => {
+    if (!benchmarkHistory?.length || !earliestDate) return null
+    const startTs   = new Date(earliestDate).getTime()
+    const atStart   = benchmarkHistory.find(d => d.time >= startTs)
+    const atEnd     = benchmarkHistory[benchmarkHistory.length - 1]
+    if (!atStart || !atEnd || atStart.close === 0) return null
+    return +((atEnd.close - atStart.close) / atStart.close * 100).toFixed(2)
+  })()
+
+  // Portfolio value history (from transactions)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartData = transactions
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -231,6 +254,17 @@ export default function Portfolio() {
             <div className="ps-label">Holdings</div>
             <div className="ps-value num">{holdings.length}</div>
           </div>
+          {benchmarkReturn != null && (
+            <div className="port-stat panel">
+              <div className="ps-label">JSE Top 40 (same period)</div>
+              <div className={`ps-value num ${benchmarkReturn >= 0 ? 'text-up' : 'text-down'}`} style={{ fontSize: 13 }}>
+                {benchmarkReturn >= 0 ? '+' : ''}{benchmarkReturn.toFixed(2)}%
+                <span style={{ display: 'block', fontSize: 10, fontFamily: 'var(--font-sans)', color: 'var(--color-text-muted)', fontWeight: 400, marginTop: 2 }}>
+                  {totalPct >= benchmarkReturn ? '▲ outperforming' : '▼ underperforming'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -269,6 +303,23 @@ export default function Portfolio() {
             {t === 'holdings' ? `Holdings (${holdings.length})` : `Transactions (${transactions.length})`}
           </button>
         ))}
+        {enriched.length > 0 && (
+          <button
+            className="port-tab"
+            title="Export CSV"
+            onClick={() => {
+              const rows: (string | number)[][] = [
+                ['Symbol', 'Name', 'Exchange', 'Shares', 'Avg Cost', 'Current Price', 'Value', 'P&L', 'P&L %', 'Currency'],
+                ...enriched.map(h => [h.symbol, h.name, h.exchange, h.shares, h.avgCost.toFixed(2), h.currentPrice.toFixed(2),
+                  h.currentValue.toFixed(2), h.pnl.toFixed(2), h.pnlPct.toFixed(2), h.currency]),
+              ]
+              downloadCSV(rows, 'portfolio-holdings.csv')
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            <Download size={11} /> Export
+          </button>
+        )}
       </div>
 
       {/* Empty state */}

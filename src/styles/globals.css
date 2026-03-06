@@ -49,6 +49,32 @@
   --spacing-panel: 1rem;
 }
 
+/* ─── Light theme overrides ─────────────────────────────────────────────────── */
+
+.theme-light {
+  --color-bg-primary:   #f4f4f5;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary:  #e8e8ea;
+  --color-bg-elevated:  #ffffff;
+  --color-bg-hover:     #e4e4e7;
+
+  --color-border:        #d4d4d8;
+  --color-border-subtle: #e4e4e7;
+
+  --color-text-primary:   #09090b;
+  --color-text-secondary: #3f3f46;
+  --color-text-muted:     #71717a;
+
+  --color-gold-subtle: rgba(201, 168, 76, 0.12);
+
+  --color-up-subtle:   rgba(22, 163, 74, 0.1);
+  --color-down-subtle: rgba(220, 38, 38, 0.1);
+}
+
+.theme-light .panel {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
 /* ─── Base ──────────────────────────────────────────────────────────────────── */
 
 *, *::before, *::after {

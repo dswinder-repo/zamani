@@ -13,6 +13,7 @@ const Alerts      = lazy(() => import('./pages/Alerts'))
 const Calendar    = lazy(() => import('./pages/Calendar'))
 const Compare     = lazy(() => import('./pages/Compare'))
 const NotFound    = lazy(() => import('./pages/NotFound'))
+const Monitor     = lazy(() => import('./pages/Monitor'))
 
 function PageLoader() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/alerts"                              element={<Alerts />} />
           <Route path="/calendar"                            element={<Calendar />} />
           <Route path="/compare"                             element={<Compare />} />
+          <Route path="/monitor"                             element={<Monitor />} />
           <Route path="*"                                    element={<NotFound />} />
         </Routes>
       </Suspense>

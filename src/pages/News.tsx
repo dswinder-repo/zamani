@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Search } from 'lucide-react'
 import { provider } from '../services/api'
 import type { NewsItem } from '../services/api'
 
@@ -33,6 +34,7 @@ function NewsCard({ item }: { item: NewsItem }) {
 
 export default function News() {
   const [filter, setFilter] = useState('All')
+  const [search, setSearch] = useState('')
 
   const { data: news, isLoading } = useQuery<NewsItem[]>({
     queryKey: ['news', 'all'],
@@ -41,9 +43,12 @@ export default function News() {
     refetchInterval: 5 * 60_000,
   })
 
-  const filtered = (news ?? []).filter(item =>
-    filter === 'All' || item.exchange === filter || (item.symbols ?? []).some(s => s.includes(filter))
-  )
+  const filtered = (news ?? []).filter(item => {
+    const exchangeMatch = filter === 'All' || item.exchange === filter || (item.symbols ?? []).some(s => s.includes(filter))
+    const searchMatch   = !search || item.headline.toLowerCase().includes(search.toLowerCase()) ||
+      item.source.toLowerCase().includes(search.toLowerCase())
+    return exchangeMatch && searchMatch
+  })
 
   return (
     <div className="news-page">
@@ -52,16 +57,30 @@ export default function News() {
         <p className="news-sub">African markets headlines — auto-refreshes every 5 minutes</p>
       </div>
 
-      <div className="news-filters">
-        {EXCHANGE_FILTERS.map(ex => (
-          <button
-            key={ex}
-            className={`nf-tab ${filter === ex ? 'active' : ''}`}
-            onClick={() => setFilter(ex)}
-          >
-            {ex}
-          </button>
-        ))}
+      <div className="news-controls">
+        <div className="news-filters">
+          {EXCHANGE_FILTERS.map(ex => (
+            <button
+              key={ex}
+              className={`nf-tab ${filter === ex ? 'active' : ''}`}
+              onClick={() => setFilter(ex)}
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+        <div className="news-search-wrap">
+          <Search size={11} className="news-search-icon" />
+          <input
+            className="news-search-input"
+            placeholder="Search headlines…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="news-search-clear" onClick={() => setSearch('')}>✕</button>
+          )}
+        </div>
       </div>
 
       <div className="news-count">
@@ -81,7 +100,26 @@ export default function News() {
         .news-h1  { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
         .news-sub { margin: 0.125rem 0 0; font-size: 11px; color: var(--color-text-muted); }
 
-        .news-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+        .news-controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+        .news-filters { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+
+        .news-search-wrap {
+          display: flex; align-items: center; gap: 0.375rem;
+          background: var(--color-bg-secondary); border: 1px solid var(--color-border);
+          border-radius: 4px; padding: 0.25rem 0.5rem; min-width: 180px;
+        }
+        .news-search-icon { color: var(--color-text-muted); flex-shrink: 0; }
+        .news-search-input {
+          flex: 1; background: none; border: none; outline: none;
+          font-size: 11px; color: var(--color-text-primary);
+        }
+        .news-search-input::placeholder { color: var(--color-text-muted); }
+        .news-search-clear {
+          background: none; border: none; cursor: pointer;
+          color: var(--color-text-muted); font-size: 10px; padding: 0;
+          transition: color 0.1s;
+        }
+        .news-search-clear:hover { color: var(--color-down); }
         .nf-tab {
           padding: 3px 9px; font-size: 10px; font-weight: 600;
           border: 1px solid var(--color-border); border-radius: 3px;

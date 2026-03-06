@@ -10,6 +10,8 @@ import CommoditiesPanel from '../components/market/CommoditiesPanel'
 import WatchlistPanel from '../components/watchlist/WatchlistPanel'
 import NdebelePanel from '../components/patterns/NdebelePanel'
 import GlobalMarketsBar from '../components/market/GlobalMarketsBar'
+import YieldCurvePanel from '../components/market/YieldCurvePanel'
+import AfricaMap from '../components/market/AfricaMap'
 
 export default function Dashboard() {
   const { data: indices, isLoading: loadingIdx } = useQuery<IndexSnapshot[]>({
@@ -105,9 +107,16 @@ export default function Dashboard() {
             <div className="section-label">Watchlist</div>
             <WatchlistPanel />
           </section>
+
+          <section className="dash-section">
+            <div className="section-label">Exchanges</div>
+            <div className="panel" style={{ padding: '0.5rem' }}>
+              <AfricaMap />
+            </div>
+          </section>
         </div>
 
-        {/* Col 2: Forex + Commodities */}
+        {/* Col 2: Forex + Commodities + Yield Curve */}
         <div className="dash-col">
           <section className="dash-section">
             <div className="section-label">Forex Rates</div>
@@ -121,6 +130,13 @@ export default function Dashboard() {
               : (commodities?.length ?? 0) > 0
                 ? <CommoditiesPanel items={commodities ?? []} />
                 : <DashEmpty message="Commodity data unavailable" />}
+          </section>
+
+          <section className="dash-section">
+            <div className="section-label">Yield Curve</div>
+            <div className="panel" style={{ padding: '0.75rem' }}>
+              <YieldCurvePanel />
+            </div>
           </section>
         </div>
 

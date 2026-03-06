@@ -7,10 +7,11 @@ import type { Quote, OHLCV } from '../../services/api/types'
 import Sparkline from '../charts/Sparkline'
 
 export default function WatchlistPanel() {
-  const { symbols, remove } = useWatchlist()
+  const { lists, activeId, symbols, add, remove, createList, setActive } = useWatchlist()
   const [adding, setAdding] = useState(false)
   const [input, setInput]   = useState('')
-  const { add } = useWatchlist()
+  const [newListInput, setNewListInput] = useState('')
+  const [addingList, setAddingList]     = useState(false)
 
   const quoteResults = useQueries({
     queries: symbols.map(sym => ({
@@ -21,7 +22,6 @@ export default function WatchlistPanel() {
     })),
   })
 
-  // Fetch 30-day history for sparklines (stale 5 min — non-critical)
   const histResults = useQueries({
     queries: symbols.map(sym => ({
       queryKey: ['history', sym, 30],
@@ -36,8 +36,30 @@ export default function WatchlistPanel() {
     if (sym) { add(sym); setInput(''); setAdding(false) }
   }
 
+  function handleNewList(e: React.FormEvent) {
+    e.preventDefault()
+    const name = newListInput.trim()
+    if (name) { createList(name); setNewListInput(''); setAddingList(false) }
+  }
+
   return (
     <div className="wl-panel">
+      {/* List tabs */}
+      {lists.length > 1 && (
+        <div className="wl-tabs">
+          {lists.map(l => (
+            <button
+              key={l.id}
+              className={`wl-tab ${l.id === activeId ? 'active' : ''}`}
+              onClick={() => setActive(l.id)}
+              title={l.name}
+            >
+              {l.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="wl-list">
         {symbols.length === 0 && (
           <div className="wl-empty">No symbols — add one below</div>
@@ -98,13 +120,44 @@ export default function WatchlistPanel() {
           <button type="button" className="wl-cancel-btn" onClick={() => setAdding(false)}>✕</button>
         </form>
       ) : (
-        <button className="wl-add-trigger" onClick={() => setAdding(true)}>
-          <Plus size={10} /> Add symbol
-        </button>
+        <div className="wl-footer">
+          <button className="wl-add-trigger" onClick={() => setAdding(true)}>
+            <Plus size={10} /> Add symbol
+          </button>
+          {!addingList ? (
+            <button className="wl-list-trigger" onClick={() => setAddingList(true)} title="New watchlist">
+              <Plus size={9} /> List
+            </button>
+          ) : (
+            <form className="wl-newlist-form" onSubmit={handleNewList}>
+              <input
+                className="wl-input"
+                value={newListInput}
+                onChange={e => setNewListInput(e.target.value)}
+                placeholder="List name"
+                autoFocus
+                style={{ width: 80 }}
+              />
+              <button type="submit" className="wl-add-btn">OK</button>
+              <button type="button" className="wl-cancel-btn" onClick={() => setAddingList(false)}>✕</button>
+            </form>
+          )}
+        </div>
       )}
 
       <style>{`
         .wl-panel { display: flex; flex-direction: column; gap: 0.5rem; }
+
+        .wl-tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+        .wl-tab {
+          padding: 2px 7px; font-size: 9px; font-weight: 600;
+          border: 1px solid var(--color-border); border-radius: 3px;
+          background: none; color: var(--color-text-muted); cursor: pointer;
+          transition: all 0.1s; white-space: nowrap;
+        }
+        .wl-tab:hover  { color: var(--color-text-secondary); }
+        .wl-tab.active { color: var(--color-gold); border-color: var(--color-gold-dim); background: var(--color-gold-subtle); }
+
         .wl-list  { display: flex; flex-direction: column; }
 
         .wl-empty {
@@ -175,6 +228,8 @@ export default function WatchlistPanel() {
         }
         .wl-remove:hover { color: var(--color-down); }
 
+        .wl-footer { display: flex; gap: 0.35rem; align-items: center; }
+
         .wl-add-trigger {
           display: flex;
           align-items: center;
@@ -186,7 +241,7 @@ export default function WatchlistPanel() {
           padding: 0.35rem 0.6rem;
           border-radius: 3px;
           cursor: pointer;
-          width: 100%;
+          flex: 1;
           justify-content: center;
           transition: color 0.15s, border-color 0.15s;
         }
@@ -194,8 +249,17 @@ export default function WatchlistPanel() {
           color: var(--color-gold);
           border-color: var(--color-gold);
         }
+        .wl-list-trigger {
+          display: flex; align-items: center; gap: 2px;
+          background: none; border: 1px dashed var(--color-border-subtle);
+          color: var(--color-text-muted); font-size: 9px;
+          padding: 0.35rem 0.4rem; border-radius: 3px; cursor: pointer;
+          transition: color 0.15s, border-color 0.15s; flex-shrink: 0;
+          white-space: nowrap;
+        }
+        .wl-list-trigger:hover { color: var(--color-gold); border-color: var(--color-gold); }
 
-        .wl-add-form {
+        .wl-add-form, .wl-newlist-form {
           display: flex;
           gap: 0.35rem;
           align-items: center;
@@ -220,6 +284,7 @@ export default function WatchlistPanel() {
           padding: 0.3rem 0.5rem;
           border-radius: 3px;
           cursor: pointer;
+          white-space: nowrap;
         }
         .wl-add-btn:hover    { border-color: var(--color-gold); color: var(--color-gold); }
         .wl-cancel-btn:hover { border-color: var(--color-down); color: var(--color-down); }

@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Bell, Settings, ExternalLink, Menu } from 'lucide-react'
+import { Search, Bell, Settings, ExternalLink, Menu, Sun, Moon } from 'lucide-react'
 import NdebeleStrip from '../patterns/NdebeleStrip'
 import Clock from './Clock'
 import MarketStatus from './MarketStatus'
 import { useAlerts } from '../../stores/alerts'
+import { useTheme } from '../../stores/theme'
 
 interface TopbarProps {
   onSearch:      () => void
@@ -13,6 +14,7 @@ interface TopbarProps {
 
 export default function Topbar({ onSearch, onMenuToggle }: TopbarProps) {
   const { alerts, unreadCount, markRead } = useAlerts()
+  const { theme, toggle: toggleTheme } = useTheme()
   const navigate = useNavigate()
 
   const [showNotif, setShowNotif] = useState(false)
@@ -125,6 +127,16 @@ export default function Topbar({ onSearch, onMenuToggle }: TopbarProps) {
               </div>
             )}
           </div>
+
+          {/* Theme toggle */}
+          <button
+            className="icon-btn topbar-desktop-only"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
 
           {/* Settings — hidden on smallest screens */}
           <button className="icon-btn topbar-desktop-only" aria-label="Settings">

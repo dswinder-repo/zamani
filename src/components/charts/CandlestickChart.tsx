@@ -10,6 +10,8 @@ export interface ChartIndicators {
   ma20?: boolean
   ma50?: boolean
   rsi?:  boolean
+  bb?:   boolean
+  vwap?: boolean
 }
 
 interface CandlestickChartProps {
@@ -37,6 +39,30 @@ function computeMA(data: OHLCV[], period: number): (number | null)[] {
   })
 }
 
+function computeBB(data: OHLCV[], period = 20): { upper: (number | null)[]; lower: (number | null)[] } {
+  const upper: (number | null)[] = []
+  const lower: (number | null)[] = []
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) { upper.push(null); lower.push(null); continue }
+    const slice = data.slice(i - period + 1, i + 1).map(d => d.close)
+    const ma    = slice.reduce((s, v) => s + v, 0) / period
+    const stddev = Math.sqrt(slice.reduce((s, v) => s + (v - ma) ** 2, 0) / period)
+    upper.push(+(ma + 2 * stddev).toFixed(2))
+    lower.push(+(ma - 2 * stddev).toFixed(2))
+  }
+  return { upper, lower }
+}
+
+function computeVWAP(data: OHLCV[]): (number | null)[] {
+  let cumTPV = 0, cumVol = 0
+  return data.map(d => {
+    if (!d.volume) return null
+    cumTPV += ((d.high + d.low + d.close) / 3) * d.volume
+    cumVol += d.volume
+    return cumVol > 0 ? +(cumTPV / cumVol).toFixed(2) : null
+  })
+}
+
 function computeRSI(data: OHLCV[], period = 14): (number | null)[] {
   const result: (number | null)[] = []
   for (let i = 0; i < data.length; i++) {
@@ -58,7 +84,10 @@ function computeRSI(data: OHLCV[], period = 14): (number | null)[] {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, currency = 'USD' }: any) {
   if (!active || !payload?.length) return null
-  const d = payload[0]?.payload as OHLCV & { date: string; ma20?: number; ma50?: number; rsi?: number }
+  const d = payload[0]?.payload as OHLCV & {
+    date: string; ma20?: number; ma50?: number; rsi?: number
+    bbUpperAbs?: number; bbLowerAbs?: number; vwapAbs?: number
+  }
   if (!d) return null
 
   return (
@@ -91,6 +120,10 @@ function CustomTooltip({ active, payload, currency = 'USD' }: any) {
       {d.ma20 != null && <div style={{ color: '#60a5fa', marginTop: 2 }}>MA20 {fmtPrice(d.ma20, currency)}</div>}
       {d.ma50 != null && <div style={{ color: '#f59e0b', marginTop: 2 }}>MA50 {fmtPrice(d.ma50, currency)}</div>}
       {d.rsi  != null && <div style={{ color: '#a78bfa', marginTop: 2 }}>RSI  {d.rsi.toFixed(1)}</div>}
+      {d.bbUpperAbs != null && d.bbLowerAbs != null && (
+        <div style={{ color: '#06b6d4', marginTop: 2 }}>BB {d.bbLowerAbs.toFixed(2)}–{d.bbUpperAbs.toFixed(2)}</div>
+      )}
+      {d.vwapAbs != null && <div style={{ color: '#8b5cf6', marginTop: 2 }}>VWAP {fmtPrice(d.vwapAbs, currency)}</div>}
     </div>
   )
 }
@@ -130,6 +163,8 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
   const ma20vals = indicators.ma20 ? computeMA(data, 20) : []
   const ma50vals = indicators.ma50 ? computeMA(data, 50) : []
   const rsiVals  = indicators.rsi  ? computeRSI(data)    : []
+  const bbVals   = indicators.bb   ? computeBB(data)     : { upper: [] as (number|null)[], lower: [] as (number|null)[] }
+  const vwapVals = indicators.vwap ? computeVWAP(data)   : []
   const showRSI  = indicators.rsi && rsiVals.some(v => v != null)
 
   const chartData = data.map((d, i) => ({
@@ -142,6 +177,16 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
     ...(indicators.ma20 && ma20vals[i] != null ? { ma20: ma20vals[i] as number - minVal, ma20abs: ma20vals[i] } : {}),
     ...(indicators.ma50 && ma50vals[i] != null ? { ma50: ma50vals[i] as number - minVal, ma50abs: ma50vals[i] } : {}),
     ...(showRSI ? { rsi: rsiVals[i] } : {}),
+    ...(indicators.bb && bbVals.upper[i] != null ? {
+      bbUpper:    (bbVals.upper[i] as number) - minVal,
+      bbLower:    Math.max(0, (bbVals.lower[i] as number) - minVal),
+      bbUpperAbs: bbVals.upper[i],
+      bbLowerAbs: bbVals.lower[i],
+    } : {}),
+    ...(indicators.vwap && vwapVals[i] != null ? {
+      vwap:    (vwapVals[i] as number) - minVal,
+      vwapAbs: vwapVals[i],
+    } : {}),
   }))
 
   const mainHeight = showRSI ? height - 80 : height
@@ -205,6 +250,20 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
             <Line type="monotone" dataKey="ma50" stroke="#f59e0b" strokeWidth={1.5}
               dot={false} isAnimationActive={false} connectNulls strokeDasharray="4 2" />
           )}
+          {/* Bollinger Bands */}
+          {indicators.bb && (
+            <>
+              <Line type="monotone" dataKey="bbUpper" stroke="#06b6d4" strokeWidth={1}
+                dot={false} isAnimationActive={false} connectNulls strokeDasharray="3 2" />
+              <Line type="monotone" dataKey="bbLower" stroke="#06b6d4" strokeWidth={1}
+                dot={false} isAnimationActive={false} connectNulls strokeDasharray="3 2" />
+            </>
+          )}
+          {/* VWAP */}
+          {indicators.vwap && (
+            <Line type="monotone" dataKey="vwap" stroke="#8b5cf6" strokeWidth={1.5}
+              dot={false} isAnimationActive={false} connectNulls />
+          )}
         </ComposedChart>
       </ResponsiveContainer>
 
@@ -236,11 +295,13 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
         </ResponsiveContainer>
       )}
 
-      {/* MA legend */}
-      {(indicators.ma20 || indicators.ma50) && (
-        <div style={{ display: 'flex', gap: '0.75rem', padding: '4px 4px 0', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+      {/* Indicator legend */}
+      {(indicators.ma20 || indicators.ma50 || indicators.bb || indicators.vwap) && (
+        <div style={{ display: 'flex', gap: '0.75rem', padding: '4px 4px 0', fontSize: 10, fontFamily: 'var(--font-mono)', flexWrap: 'wrap' }}>
           {indicators.ma20 && <span style={{ color: '#60a5fa' }}>─ MA20</span>}
           {indicators.ma50 && <span style={{ color: '#f59e0b' }}>╌ MA50</span>}
+          {indicators.bb   && <span style={{ color: '#06b6d4' }}>╌ BB(20)</span>}
+          {indicators.vwap && <span style={{ color: '#8b5cf6' }}>─ VWAP</span>}
           {showRSI         && <span style={{ color: '#a78bfa' }}>─ RSI(14)</span>}
         </div>
       )}

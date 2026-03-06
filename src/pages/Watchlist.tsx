@@ -1,4 +1,4 @@
-import { Star, X, Search, Plus } from 'lucide-react'
+import { Star, X, Search, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -8,8 +8,12 @@ import Sparkline from '../components/charts/Sparkline'
 import { useWatchlist } from '../stores/watchlist'
 
 export default function Watchlist() {
-  const { symbols, add, remove } = useWatchlist()
+  const { lists, activeId, symbols, add, remove, createList, deleteList, setActive } = useWatchlist()
   const [addInput, setAddInput] = useState('')
+  const [newListInput, setNewListInput] = useState('')
+  const [showNewList, setShowNewList] = useState(false)
+
+  const activeList = lists.find(l => l.id === activeId)
 
   const results = useQueries({
     queries: symbols.map(sym => ({
@@ -28,12 +32,60 @@ export default function Watchlist() {
     }
   }
 
+  function handleNewList() {
+    const name = newListInput.trim()
+    if (name) { createList(name); setNewListInput(''); setShowNewList(false) }
+  }
+
   return (
     <div className="wl-page">
-      <div>
-        <h1 className="wl-h1">Watchlist</h1>
-        <p className="wl-sub">Your tracked securities — live quotes, refreshed every 30s</p>
+      <div className="wl-page-header">
+        <div>
+          <h1 className="wl-h1">Watchlist</h1>
+          <p className="wl-sub">Your tracked securities — live quotes, refreshed every 30s</p>
+        </div>
+        <button className="wl-new-list-btn" onClick={() => setShowNewList(v => !v)}>
+          <Plus size={11} /> New List
+        </button>
       </div>
+
+      {/* List tabs */}
+      <div className="wl-list-tabs">
+        {lists.map(l => (
+          <div key={l.id} className={`wl-list-tab ${l.id === activeId ? 'active' : ''}`}>
+            <button className="wl-list-tab-btn" onClick={() => setActive(l.id)}>
+              {l.name} <span className="wl-list-count">{l.symbols.length}</span>
+            </button>
+            {lists.length > 1 && (
+              <button
+                className="wl-list-del"
+                onClick={() => deleteList(l.id)}
+                aria-label={`Delete ${l.name}`}
+                title={`Delete ${l.name}`}
+              >
+                <Trash2 size={9} />
+              </button>
+            )}
+          </div>
+        ))}
+        {showNewList && (
+          <div className="wl-new-list-form">
+            <input
+              className="wl-add-input"
+              placeholder="List name"
+              value={newListInput}
+              onChange={e => setNewListInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleNewList()}
+              autoFocus
+              style={{ width: 120 }}
+            />
+            <button className="wl-add-btn" onClick={handleNewList}>Create</button>
+            <button className="wl-add-btn" onClick={() => setShowNewList(false)} style={{ borderColor: 'var(--color-border)' }}>✕</button>
+          </div>
+        )}
+      </div>
+
+      {activeList && <div className="wl-active-name">{activeList.name}</div>}
 
       {/* Add symbol input */}
       <div className="wl-add-row">
@@ -129,8 +181,50 @@ export default function Watchlist() {
 
       <style>{`
         .wl-page { display: flex; flex-direction: column; gap: 1rem; max-width: 900px; }
+        .wl-page-header { display: flex; align-items: flex-start; justify-content: space-between; }
         .wl-h1  { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
         .wl-sub { margin: 0.125rem 0 0; font-size: 11px; color: var(--color-text-muted); }
+
+        .wl-new-list-btn {
+          display: flex; align-items: center; gap: 4px;
+          padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: 600;
+          border: 1px solid var(--color-border); background: none;
+          color: var(--color-text-muted); cursor: pointer; transition: all 0.1s;
+        }
+        .wl-new-list-btn:hover { color: var(--color-gold); border-color: var(--color-gold-dim); }
+
+        .wl-list-tabs { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+        .wl-list-tab {
+          display: flex; align-items: center;
+          border: 1px solid var(--color-border); border-radius: 4px; overflow: hidden;
+        }
+        .wl-list-tab.active { border-color: var(--color-gold-dim); background: var(--color-gold-subtle); }
+        .wl-list-tab-btn {
+          display: flex; align-items: center; gap: 4px;
+          padding: 3px 8px; background: none; border: none;
+          font-size: 11px; font-weight: 600; cursor: pointer;
+          color: var(--color-text-muted); transition: color 0.1s;
+        }
+        .wl-list-tab.active .wl-list-tab-btn { color: var(--color-gold); }
+        .wl-list-count {
+          font-size: 9px; color: var(--color-text-muted);
+          font-family: var(--font-mono);
+        }
+        .wl-list-del {
+          padding: 3px 5px; background: none; border: none;
+          border-left: 1px solid var(--color-border);
+          color: var(--color-text-muted); cursor: pointer; opacity: 0.5;
+          transition: all 0.1s; display: flex; align-items: center;
+        }
+        .wl-list-del:hover { opacity: 1; color: var(--color-down); }
+
+        .wl-new-list-form {
+          display: flex; align-items: center; gap: 4px;
+        }
+        .wl-active-name {
+          font-size: 11px; font-weight: 700; color: var(--color-gold);
+          text-transform: uppercase; letter-spacing: 0.05em;
+        }
 
         .wl-count { font-size: 10px; color: var(--color-text-muted); font-family: var(--font-mono); }
 

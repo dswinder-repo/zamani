@@ -1,10 +1,12 @@
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import Topbar from './Topbar'
 import Sidebar from './Sidebar'
 import TickerStrip from './TickerStrip'
 import CommandPalette from '../search/CommandPalette'
 import { useCommandPalette } from '../../hooks/useCommandPalette'
 import { useAlertWatcher } from '../../hooks/useAlertWatcher'
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
+import { applyStoredTheme } from '../../stores/theme'
 import { IS_DEMO_MODE } from '../../services/api'
 
 interface ShellProps {
@@ -17,6 +19,9 @@ export default function Shell({ children }: ShellProps) {
   const { isOpen, open, close } = useCommandPalette()
 
   useAlertWatcher()
+  useKeyboardShortcuts()
+
+  useEffect(() => { applyStoredTheme() }, [])
 
   return (
     <div className="shell">
