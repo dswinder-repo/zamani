@@ -17,19 +17,21 @@ const SHORTCUTS = [
     { key: 'G M',  desc: 'Monitor mode' },
     { key: 'G S',  desc: 'Screener' },
     { key: 'G I',  desc: 'Economic Indicators' },
+    { key: 'G X',  desc: 'Beat the Index' },
     { key: 'G O',  desc: '🔮 Invoke the Oracle of Lagos' },
     { key: 'G L',  desc: '🦁 SIMBA! — manual lion toast' },
     { key: 'G B',  desc: '🍚 The Great Jollof War' },
+  ]},
+  { group: '· · · secrets', items: [
+    { key: 'G T',  desc: '🌍' },
+    { key: 'G Z',  desc: '🏭' },
+    { key: 'G H',  desc: '🐗' },
+    { key: 'G R',  desc: '🌅' },
   ]},
   { group: 'General', items: [
     { key: '?',    desc: 'Show this keyboard shortcuts overlay' },
     { key: '/',    desc: 'Open command palette (search)' },
     { key: '↑↑↓↓←→←→BA', desc: '⚡ Konami code — activate Bloomberg Beast Mode' },
-  ]},
-  { group: '· · ·', items: [
-    { key: 'G Z',  desc: '🏭' },
-    { key: 'G H',  desc: '🐗' },
-    { key: 'G R',  desc: '🌅' },
   ]},
 ]
 

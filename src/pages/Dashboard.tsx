@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { TrendingUp, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react'
+import { getFactForToday } from '../data/onThisDay'
 import { provider, getLiveForex } from '../services/api'
 import type { IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from '../services/api'
 import IndexCard from '../components/market/IndexCard'
@@ -142,7 +143,7 @@ export default function Dashboard() {
           </section>
         </div>
 
-        {/* Col 3: News */}
+        {/* Col 3: News + On This Day */}
         <div className="dash-col">
           <section className="dash-section">
             <div className="section-label">Latest News</div>
@@ -152,6 +153,7 @@ export default function Dashboard() {
                 ? <NewsFeed items={news ?? []} />
                 : <DashEmpty message="Live news feed not yet connected" />}
           </section>
+          <OnThisDay />
         </div>
 
       </div>
@@ -178,6 +180,7 @@ export default function Dashboard() {
                 ['G S', 'Screener'],
                 ['G I', 'Macro indicators'],
                 ['G M', 'Monitor mode'],
+                ['G X', 'Beat the Index'],
                 ['?',   'Show all shortcuts'],
               ].map(([k, d]) => (
                 <div key={k} className="cheat-row">
@@ -248,13 +251,14 @@ export default function Dashboard() {
             <div className="cheat-eggs-label">🥚 Secret Codes</div>
             <div className="cheat-eggs-row">
               {[
-                { trigger: '↑↑↓↓←→←→BA', reveal: null,  name: 'Bloomberg Beast Mode',    desc: 'Konami code — activates a 30-day Bloomberg Terminal trial (fake)' },
-                { trigger: 'G O',          reveal: null,  name: 'Oracle of Lagos',          desc: 'Summons the keeper of African market wisdom for a prophecy' },
-                { trigger: 'G B',          reveal: null,  name: 'The Great Jollof War',     desc: 'Nigeria vs Ghana — the eternal rice debate, settled by markets' },
-                { trigger: 'G L',          reveal: null,  name: 'SIMBA!',                   desc: 'Also fires automatically when a stock hits its 52-week high' },
-                { trigger: '[???]',        reveal: 'G Z', name: 'What Would Dangote Do?',   desc: 'Wisdom from Africa\'s richest person, delivered with authority' },
-                { trigger: '[???]',        reveal: 'G H', name: 'Hakuna Matata',             desc: 'Also fires automatically when your portfolio is down more than 5%' },
-                { trigger: '[???]',        reveal: 'G R', name: 'Circle of Life',            desc: 'Also fires automatically when your portfolio hits a new all-time high' },
+                { trigger: '↑↑↓↓←→←→BA', reveal: null,  name: 'Bloomberg Beast Mode',        desc: 'Konami code — activates a 30-day Bloomberg Terminal trial (fake)' },
+                { trigger: 'G O',          reveal: null,  name: 'Oracle of Lagos',              desc: 'Summons the keeper of African market wisdom for a prophecy' },
+                { trigger: 'G B',          reveal: null,  name: 'The Great Jollof War',         desc: 'Nigeria vs Ghana — the eternal rice debate, settled by markets' },
+                { trigger: 'G L',          reveal: null,  name: 'SIMBA!',                       desc: 'Also fires automatically when a stock hits its 52-week high' },
+                { trigger: '[???]',        reveal: 'G T', name: 'Merchant of the Savanna',      desc: 'A Dope Wars–style commodity trading game across 6 African cities' },
+                { trigger: '[???]',        reveal: 'G Z', name: 'What Would Dangote Do?',       desc: 'Wisdom from Africa\'s richest person, delivered with authority' },
+                { trigger: '[???]',        reveal: 'G H', name: 'Hakuna Matata',                 desc: 'Also fires automatically when your portfolio is down more than 5%' },
+                { trigger: '[???]',        reveal: 'G R', name: 'Circle of Life',                desc: 'Also fires automatically when your portfolio hits a new all-time high' },
               ].map(({ trigger, reveal, name, desc }) => (
                 <div key={name} className="cheat-egg-item">
                   <kbd className="cheat-egg-key" data-reveal={reveal ?? undefined}
@@ -415,8 +419,33 @@ export default function Dashboard() {
           pointer-events: none; z-index: 10;
         }
         .cheat-egg-key:hover .cheat-egg-tooltip { display: block; }
+
+        /* On This Day */
+        .otd-panel { padding: 0.875rem 1rem; }
+        .otd-year {
+          font-family: var(--font-mono); font-size: 28px; font-weight: 900;
+          color: var(--color-gold); opacity: 0.4; line-height: 1; margin-bottom: 0.375rem;
+        }
+        .otd-text {
+          margin: 0; font-size: 12px; color: var(--color-text-secondary);
+          line-height: 1.6;
+        }
       `}</style>
     </div>
+  )
+}
+
+function OnThisDay() {
+  const fact = getFactForToday()
+  if (!fact) return null
+  return (
+    <section className="dash-section">
+      <div className="section-label">On This Day in African Markets</div>
+      <div className="panel otd-panel">
+        <div className="otd-year">{fact.year}</div>
+        <p className="otd-text">{fact.text}</p>
+      </div>
+    </section>
   )
 }
 

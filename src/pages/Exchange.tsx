@@ -9,6 +9,7 @@ import IndexCard from '../components/market/IndexCard'
 import TopMovers from '../components/market/TopMovers'
 import StocksTable from '../components/market/StocksTable'
 import SectorHeatmap from '../components/market/SectorHeatmap'
+import SectorTreemap from '../components/market/SectorTreemap'
 import NdebelePanel from '../components/patterns/NdebelePanel'
 import { ExchangeStatusBadge } from '../components/layout/MarketStatus'
 import { getExchangeLocalTime } from '../utils/marketHours'
@@ -164,7 +165,7 @@ export default function Exchange() {
         )}
       </section>
 
-      {/* Sector heatmap */}
+      {/* Sector heatmap + treemap */}
       {isLive && (stocks ?? []).length > 0 && (
         <section>
           <SectorHeatmap
@@ -173,6 +174,14 @@ export default function Exchange() {
             activeSector={activeSector}
             onSectorClick={setActiveSector}
           />
+        </section>
+      )}
+      {isLive && (stocks ?? []).length > 0 && id === 'jse' && (
+        <section>
+          <div className="section-label">Sector Treemap</div>
+          <div className="panel" style={{ padding: '0.75rem' }}>
+            <SectorTreemap exchangeId={id} quotes={stocks ?? []} />
+          </div>
         </section>
       )}
 

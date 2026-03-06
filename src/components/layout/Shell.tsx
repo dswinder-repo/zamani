@@ -5,6 +5,7 @@ import TickerStrip from './TickerStrip'
 import CommandPalette from '../search/CommandPalette'
 import ShortcutsModal from '../shortcuts/ShortcutsModal'
 import { BeastModeOverlay, OracleModal, SimbaToast, HakunaMatataBanner, CircleOfLifeModal, DangoteModal } from '../easter/EasterEggs'
+import { TradeGame } from '../easter/TradeGame'
 import { useCommandPalette } from '../../hooks/useCommandPalette'
 import { useShortcutsModal } from '../../stores/shortcutsModal'
 import { useAlertWatcher } from '../../hooks/useAlertWatcher'
@@ -55,6 +56,7 @@ export default function Shell({ children }: ShellProps) {
       <HakunaMatataBanner />
       <CircleOfLifeModal />
       <DangoteModal />
+      <TradeGame />
 
       <style>{`
         .shell {

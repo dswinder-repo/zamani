@@ -25,7 +25,7 @@ const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRi
 export function useKeyboardShortcuts() {
   const navigate       = useNavigate()
   const openShortcuts  = useShortcutsModal(s => s.open)
-  const { activateBeastMode, openOracle, triggerSimba, triggerHakuna, triggerCircle, openDangote } = useEasterEggs()
+  const { activateBeastMode, openOracle, triggerSimba, triggerHakuna, triggerCircle, openDangote, openTrade } = useEasterEggs()
   const konamiBuf = useRef<string[]>([])
 
   useEffect(() => {
@@ -77,6 +77,8 @@ export function useKeyboardShortcuts() {
           case 'h': triggerHakuna(0); break
           case 'r': triggerCircle(0); break
           case 'b': navigate('/jollof-war'); break
+          case 't': openTrade(); break
+          case 'x': navigate('/beat-index'); break
         }
         return
       }
@@ -97,5 +99,5 @@ export function useKeyboardShortcuts() {
       document.removeEventListener('keydown', handler)
       clearG()
     }
-  }, [navigate, openShortcuts, activateBeastMode, openOracle, triggerSimba, triggerHakuna, triggerCircle, openDangote])
+  }, [navigate, openShortcuts, activateBeastMode, openOracle, triggerSimba, triggerHakuna, triggerCircle, openDangote, openTrade])
 }

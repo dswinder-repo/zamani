@@ -1,4 +1,4 @@
-import { Star, X, Search, Plus, Trash2 } from 'lucide-react'
+import { Star, X, Search, Plus, Trash2, StickyNote } from 'lucide-react'
 import { useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -6,12 +6,15 @@ import { provider } from '../services/api'
 import type { Quote } from '../services/api'
 import Sparkline from '../components/charts/Sparkline'
 import { useWatchlist } from '../stores/watchlist'
+import { useNotes } from '../stores/notes'
 
 export default function Watchlist() {
   const { lists, activeId, symbols, add, remove, createList, deleteList, setActive } = useWatchlist()
+  const { getNote, setNote } = useNotes()
   const [addInput, setAddInput] = useState('')
   const [newListInput, setNewListInput] = useState('')
   const [showNewList, setShowNewList] = useState(false)
+  const [noteOpen, setNoteOpen] = useState<Record<string, boolean>>({})
 
   const activeList = lists.find(l => l.id === activeId)
 
@@ -166,12 +169,30 @@ export default function Watchlist() {
                     )}
                   </div>
 
-                  <Link
-                    to={`/exchange/${quote?.exchange?.toLowerCase() ?? 'jse'}/stock/${encodeURIComponent(sym)}`}
-                    className="wl-card-link"
-                  >
-                    View detail →
-                  </Link>
+                  <div className="wl-card-footer">
+                    <Link
+                      to={`/exchange/${quote?.exchange?.toLowerCase() ?? 'jse'}/stock/${encodeURIComponent(sym)}`}
+                      className="wl-card-link"
+                    >
+                      View detail →
+                    </Link>
+                    <button
+                      className={`wl-note-toggle ${getNote(sym) ? 'has-note' : ''}`}
+                      onClick={() => setNoteOpen(s => ({ ...s, [sym]: !s[sym] }))}
+                      title="Notes"
+                    >
+                      <StickyNote size={10} />
+                    </button>
+                  </div>
+                  {noteOpen[sym] && (
+                    <textarea
+                      className="wl-note-area"
+                      placeholder={`Notes for ${sym}…`}
+                      value={getNote(sym)}
+                      onChange={e => setNote(sym, e.target.value)}
+                      rows={3}
+                    />
+                  )}
                 </div>
               )
             })}
@@ -295,14 +316,33 @@ export default function Watchlist() {
 
         .wl-loading { font-size: 11px; color: var(--color-text-muted); font-family: var(--font-mono); }
 
-        .wl-card-link {
-          font-size: 10px; color: var(--color-text-muted);
-          text-decoration: none; font-weight: 600;
+        .wl-card-footer {
+          display: flex; align-items: center; justify-content: space-between;
           border-top: 1px solid var(--color-border-subtle);
           padding-top: 0.375rem; margin-top: 0.125rem;
-          transition: color 0.1s;
+        }
+        .wl-card-link {
+          font-size: 10px; color: var(--color-text-muted);
+          text-decoration: none; font-weight: 600; transition: color 0.1s;
         }
         .wl-card-link:hover { color: var(--color-gold); }
+        .wl-note-toggle {
+          background: none; border: none; cursor: pointer; padding: 2px 4px;
+          color: var(--color-text-muted); border-radius: 3px; transition: all 0.1s;
+          display: flex; align-items: center;
+        }
+        .wl-note-toggle:hover { color: var(--color-gold); background: var(--color-gold-subtle); }
+        .wl-note-toggle.has-note { color: var(--color-gold); }
+        .wl-note-area {
+          width: 100%; box-sizing: border-box; resize: vertical;
+          background: var(--color-bg-primary); border: 1px solid var(--color-border);
+          border-radius: 3px; padding: 0.375rem 0.5rem;
+          font-family: var(--font-sans); font-size: 11px; line-height: 1.5;
+          color: var(--color-text-secondary); outline: none;
+          transition: border-color 0.1s;
+        }
+        .wl-note-area:focus { border-color: var(--color-gold-dim); }
+        .wl-note-area::placeholder { color: var(--color-text-muted); }
       `}</style>
     </div>
   )

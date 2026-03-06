@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Newspaper, DollarSign, Star,
   BarChart2, ChevronLeft, ChevronRight,
   Briefcase, Bell, Calendar, GitCompare, X,
-  Monitor, Filter, TrendingUp,
+  Monitor, Filter, TrendingUp, Target,
 } from 'lucide-react'
 import { useAlerts } from '../../stores/alerts'
 
@@ -36,6 +36,7 @@ const NAV: { to: string; icon: React.ComponentType<{ size?: number }>; label: st
   { to: '/screener',             icon: Filter,      label: 'Screener' },
   { to: '/economic-indicators',  icon: TrendingUp,  label: 'Macro' },
   { to: '/monitor',              icon: Monitor,     label: 'Monitor' },
+  { to: '/beat-index',           icon: Target,      label: 'Beat the Index' },
   { to: '/jollof-war',          icon: JollofIcon,  label: 'Jollof War' },
 ]
 

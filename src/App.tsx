@@ -17,6 +17,7 @@ const Monitor              = lazy(() => import('./pages/Monitor'))
 const Screener             = lazy(() => import('./pages/Screener'))
 const EconomicIndicators   = lazy(() => import('./pages/EconomicIndicators'))
 const JollofWar            = lazy(() => import('./pages/JollofWar'))
+const BeatIndex            = lazy(() => import('./pages/BeatIndex'))
 
 function PageLoader() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/screener"                            element={<Screener />} />
           <Route path="/economic-indicators"                 element={<EconomicIndicators />} />
           <Route path="/jollof-war"                          element={<JollofWar />} />
+          <Route path="/beat-index"                          element={<BeatIndex />} />
           <Route path="*"                                    element={<NotFound />} />
         </Routes>
       </Suspense>

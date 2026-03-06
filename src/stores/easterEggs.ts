@@ -9,6 +9,7 @@ interface EasterEggStore {
   circleActive: boolean
   circleValue:  number
   dangoOpen:    boolean
+  tradeOpen:    boolean
   activateBeastMode(): void
   deactivateBeastMode(): void
   openOracle(): void
@@ -21,6 +22,8 @@ interface EasterEggStore {
   dismissCircle(): void
   openDangote(): void
   closeDangote(): void
+  openTrade(): void
+  closeTrade(): void
 }
 
 export const useEasterEggs = create<EasterEggStore>(set => ({
@@ -32,6 +35,7 @@ export const useEasterEggs = create<EasterEggStore>(set => ({
   circleActive: false,
   circleValue:  0,
   dangoOpen:    false,
+  tradeOpen:    false,
   activateBeastMode()  { set({ beastMode: true }) },
   deactivateBeastMode(){ set({ beastMode: false }) },
   openOracle()         { set({ oracleOpen: true }) },
@@ -44,6 +48,8 @@ export const useEasterEggs = create<EasterEggStore>(set => ({
   dismissCircle()      { set({ circleActive: false }) },
   openDangote()        { set({ dangoOpen: true }) },
   closeDangote()       { set({ dangoOpen: false }) },
+  openTrade()          { set({ tradeOpen: true }) },
+  closeTrade()         { set({ tradeOpen: false }) },
 }))
 
 // ── Oracle ──────────────────────────────────────────────────────────────────
