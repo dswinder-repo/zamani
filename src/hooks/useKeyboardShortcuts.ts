@@ -25,7 +25,7 @@ const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRi
 export function useKeyboardShortcuts() {
   const navigate       = useNavigate()
   const openShortcuts  = useShortcutsModal(s => s.open)
-  const { activateBeastMode, openOracle } = useEasterEggs()
+  const { activateBeastMode, openOracle, triggerSimba } = useEasterEggs()
   const konamiBuf = useRef<string[]>([])
 
   useEffect(() => {
@@ -72,6 +72,7 @@ export function useKeyboardShortcuts() {
           case 's': navigate('/screener'); break
           case 'i': navigate('/economic-indicators'); break
           case 'o': openOracle(); break
+          case 'l': triggerSimba('🦁 ZAMANI'); break
         }
         return
       }
@@ -92,5 +93,5 @@ export function useKeyboardShortcuts() {
       document.removeEventListener('keydown', handler)
       clearG()
     }
-  }, [navigate, openShortcuts, activateBeastMode, openOracle])
+  }, [navigate, openShortcuts, activateBeastMode, openOracle, triggerSimba])
 }

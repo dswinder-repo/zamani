@@ -251,7 +251,7 @@ export default function Dashboard() {
                 { trigger: '↑↑↓↓←→←→BA', name: 'Bloomberg Beast Mode', desc: 'Konami code — activates a 30-day Bloomberg Terminal trial (fake)' },
                 { trigger: 'G O', name: 'Oracle of Lagos', desc: 'Summons the keeper of African market wisdom for a prophecy' },
                 { trigger: '/jollof-war', name: 'The Great Jollof War Index', desc: 'Nigeria vs Ghana — the eternal rice debate, settled by markets' },
-                { trigger: '🦁 Auto', name: 'SIMBA!', desc: 'Appears automatically when a stock you\'re viewing hits a 52-week high' },
+                { trigger: 'G L', name: 'SIMBA!', desc: 'Manual lion toast. Also fires automatically when a stock hits its 52-week high.' },
               ].map(({ trigger, name, desc }) => (
                 <div key={name} className="cheat-egg-item">
                   <kbd className="cheat-egg-key">{trigger}</kbd>
