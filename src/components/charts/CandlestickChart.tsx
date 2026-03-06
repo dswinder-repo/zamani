@@ -16,6 +16,8 @@ export interface ChartIndicators {
   vwap?:     boolean
   linreg?:   boolean
   patterns?: boolean
+  macd?:     boolean
+  fib?:      boolean
 }
 
 interface CandlestickChartProps {
@@ -134,6 +136,66 @@ function patternShortLabel(p: PatternLabel): string {
   }
 }
 
+function computeEMA(values: number[], period: number): number[] {
+  const k = 2 / (period + 1)
+  const result: number[] = []
+  for (let i = 0; i < values.length; i++) {
+    if (i === 0) { result.push(values[0]); continue }
+    result.push(values[i] * k + result[i - 1] * (1 - k))
+  }
+  return result
+}
+
+interface MACDResult {
+  macd:   (number | null)[]
+  signal: (number | null)[]
+  hist:   (number | null)[]
+}
+
+function computeMACD(data: OHLCV[], fast = 12, slow = 26, signal = 9): MACDResult {
+  const closes = data.map(d => d.close)
+  const ema12  = computeEMA(closes, fast)
+  const ema26  = computeEMA(closes, slow)
+  const macdLine = ema12.map((v, i) => i < slow - 1 ? null : +(v - ema26[i]).toFixed(4))
+  const validMacd = macdLine.filter(v => v != null) as number[]
+  const sigLine  = computeEMA(validMacd, signal)
+  const sigFull: (number | null)[] = []
+  let si = 0
+  for (let i = 0; i < macdLine.length; i++) {
+    if (macdLine[i] == null) { sigFull.push(null); continue }
+    sigFull.push(si < sigLine.length ? +sigLine[si].toFixed(4) : null)
+    si++
+  }
+  const hist = macdLine.map((v, i) =>
+    v != null && sigFull[i] != null ? +(v - sigFull[i]!).toFixed(4) : null
+  )
+  return { macd: macdLine, signal: sigFull, hist }
+}
+
+interface FibLevels {
+  high:  number
+  low:   number
+  r236:  number
+  r382:  number
+  r500:  number
+  r618:  number
+  r786:  number
+}
+
+function computeFib(data: OHLCV[]): FibLevels {
+  const high = Math.max(...data.map(d => d.high))
+  const low  = Math.min(...data.map(d => d.low))
+  const range = high - low
+  return {
+    high, low,
+    r236: +(high - range * 0.236).toFixed(4),
+    r382: +(high - range * 0.382).toFixed(4),
+    r500: +(high - range * 0.500).toFixed(4),
+    r618: +(high - range * 0.618).toFixed(4),
+    r786: +(high - range * 0.786).toFixed(4),
+  }
+}
+
 function computeRSI(data: OHLCV[], period = 14): (number | null)[] {
   const result: (number | null)[] = []
   for (let i = 0; i < data.length; i++) {
@@ -159,6 +221,7 @@ function CustomTooltip({ active, payload, currency = 'USD' }: any) {
     date: string; ma20?: number; ma50?: number; rsi?: number
     bbUpperAbs?: number; bbLowerAbs?: number; vwapAbs?: number
     linregAbs?: number; patternLabel?: string
+    macdVal?: number; macdSig?: number; macdHist?: number
   }
   if (!d) return null
 
@@ -196,8 +259,32 @@ function CustomTooltip({ active, payload, currency = 'USD' }: any) {
         <div style={{ color: '#06b6d4', marginTop: 2 }}>BB {d.bbLowerAbs.toFixed(2)}–{d.bbUpperAbs.toFixed(2)}</div>
       )}
       {d.vwapAbs != null && <div style={{ color: '#8b5cf6', marginTop: 2 }}>VWAP {fmtPrice(d.vwapAbs, currency)}</div>}
-      {d.linregAbs != null && <div style={{ color: '#fb923c', marginTop: 2 }}>LinReg {fmtPrice(d.linregAbs, currency)}</div>}
+      {d.linregAbs  != null && <div style={{ color: '#fb923c', marginTop: 2 }}>LinReg {fmtPrice(d.linregAbs, currency)}</div>}
       {d.patternLabel != null && <div style={{ color: 'var(--color-text-muted)', marginTop: 2 }}>Pattern: {d.patternLabel.replace(/_/g, ' ')}</div>}
+      {d.macdVal != null && <div style={{ color: '#e879f9', marginTop: 2 }}>MACD {d.macdVal.toFixed(3)} / Sig {d.macdSig?.toFixed(3)}</div>}
+    </div>
+  )
+}
+
+// ── MACD sub-chart tooltip ─────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function MACDTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null
+  const d = payload[0]?.payload
+  if (!d) return null
+  return (
+    <div style={{
+      background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)',
+      borderRadius: 4, padding: '4px 8px', fontSize: 11, fontFamily: 'var(--font-mono)',
+    }}>
+      {d.macdVal != null && <div style={{ color: '#e879f9' }}>MACD {d.macdVal.toFixed(4)}</div>}
+      {d.macdSig != null && <div style={{ color: '#fbbf24' }}>Sig  {d.macdSig.toFixed(4)}</div>}
+      {d.macdHist != null && (
+        <div style={{ color: d.macdHist >= 0 ? 'var(--color-up)' : 'var(--color-down)' }}>
+          Hist {d.macdHist.toFixed(4)}
+        </div>
+      )}
     </div>
   )
 }
@@ -266,13 +353,16 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
   const minVal    = Math.min(...data.map(d => d.low))  * 0.999
   const maxVal    = Math.max(...data.map(d => d.high)) * 1.001
   const priceSpan = maxVal - minVal
-  const ma20vals  = indicators.ma20     ? computeMA(data, 20) : []
-  const ma50vals  = indicators.ma50     ? computeMA(data, 50) : []
-  const rsiVals   = indicators.rsi      ? computeRSI(data)    : []
-  const bbVals    = indicators.bb       ? computeBB(data)     : { upper: [] as (number|null)[], lower: [] as (number|null)[] }
-  const vwapVals  = indicators.vwap     ? computeVWAP(data)   : []
+  const ma20vals   = indicators.ma20    ? computeMA(data, 20) : []
+  const ma50vals   = indicators.ma50    ? computeMA(data, 50) : []
+  const rsiVals    = indicators.rsi     ? computeRSI(data)    : []
+  const bbVals     = indicators.bb      ? computeBB(data)     : { upper: [] as (number|null)[], lower: [] as (number|null)[] }
+  const vwapVals   = indicators.vwap    ? computeVWAP(data)   : []
   const linregVals = indicators.linreg  ? computeLinReg(data) : []
-  const showRSI   = indicators.rsi && rsiVals.some(v => v != null)
+  const macdVals   = indicators.macd    ? computeMACD(data)   : null
+  const fibLevels  = indicators.fib     ? computeFib(data)    : null
+  const showRSI    = indicators.rsi  && rsiVals.some(v => v != null)
+  const showMACD   = indicators.macd && !!macdVals?.macd.some(v => v != null)
 
   const chartData = data.map((d, i) => ({
     ...d,
@@ -295,6 +385,11 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
       vwapAbs: vwapVals[i],
     } : {}),
     ...(indicators.linreg ? { linreg: linregVals[i] - minVal, linregAbs: linregVals[i] } : {}),
+    ...(macdVals && macdVals.macd[i] != null ? {
+      macdVal:  macdVals.macd[i],
+      macdSig:  macdVals.signal[i],
+      macdHist: macdVals.hist[i],
+    } : {}),
     ...(indicators.patterns ? (() => {
       const pat = detectPattern(data, i)
       if (!pat) return {}
@@ -307,7 +402,9 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
     })() : {}),
   }))
 
-  const mainHeight = showRSI ? height - 80 : height
+  const subPanelHeight = 80
+  const subPanelCount  = (showRSI ? 1 : 0) + (showMACD ? 1 : 0)
+  const mainHeight     = height - subPanelHeight * subPanelCount
 
   return (
     <div ref={containerRef}>
@@ -401,6 +498,27 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
             <Line type="monotone" dataKey="linreg" stroke="#fb923c" strokeWidth={1.5}
               dot={false} isAnimationActive={false} strokeDasharray="6 3" />
           )}
+          {/* Fibonacci retracement levels */}
+          {fibLevels && (() => {
+            const fibs: { label: string; price: number; color: string }[] = [
+              { label: '78.6%', price: fibLevels.r786, color: '#f87171' },
+              { label: '61.8%', price: fibLevels.r618, color: '#fb923c' },
+              { label: '50.0%', price: fibLevels.r500, color: '#facc15' },
+              { label: '38.2%', price: fibLevels.r382, color: '#4ade80' },
+              { label: '23.6%', price: fibLevels.r236, color: '#60a5fa' },
+            ]
+            return fibs.map(f => {
+              const yVal = f.price - minVal
+              if (yVal < 0 || yVal > maxVal - minVal) return null
+              return (
+                <ReferenceLine key={f.label} y={yVal} stroke={f.color}
+                  strokeDasharray="4 3" strokeWidth={1} strokeOpacity={0.7}
+                  label={{ value: f.label, position: 'insideTopLeft', fontSize: 8,
+                    fill: f.color, fontFamily: 'var(--font-mono)' }} />
+              )
+            })
+          })()}
+
           {/* Candlestick pattern markers */}
           {indicators.patterns && (
             <Line
@@ -458,8 +576,41 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
         </ResponsiveContainer>
       )}
 
+      {/* MACD sub-panel */}
+      {showMACD && macdVals && (
+        <ResponsiveContainer width="100%" height={subPanelHeight}>
+          <ComposedChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-subtle)" vertical={false} />
+            <XAxis dataKey="date"
+              tick={{ fontSize: 9, fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}
+              tickLine={false} axisLine={{ stroke: 'var(--color-border-subtle)' }}
+              interval="preserveStartEnd" hide={showRSI} />
+            <YAxis domain={['auto', 'auto']}
+              tick={{ fontSize: 9, fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}
+              tickLine={false} axisLine={false} width={30} orientation="right" />
+            <Tooltip content={<MACDTooltip />} />
+            <ReferenceLine y={0} stroke="var(--color-border)" strokeOpacity={0.5} />
+            {/* Histogram bars */}
+            <Bar dataKey="macdHist" isAnimationActive={false}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              shape={(props: any) => {
+                const v = props.payload?.macdHist
+                if (v == null) return <g />
+                const fill = v >= 0 ? 'var(--color-up)' : 'var(--color-down)'
+                return <rect x={props.x} y={props.y} width={Math.max(props.width - 1, 1)}
+                  height={Math.max(props.height, 1)} fill={fill} fillOpacity={0.5} />
+              }}
+            />
+            <Line type="monotone" dataKey="macdVal" stroke="#e879f9" strokeWidth={1.5}
+              dot={false} isAnimationActive={false} connectNulls />
+            <Line type="monotone" dataKey="macdSig" stroke="#fbbf24" strokeWidth={1}
+              dot={false} isAnimationActive={false} connectNulls strokeDasharray="3 2" />
+          </ComposedChart>
+        </ResponsiveContainer>
+      )}
+
       {/* Indicator legend */}
-      {(indicators.ma20 || indicators.ma50 || indicators.bb || indicators.vwap || indicators.linreg || indicators.patterns) && (
+      {(indicators.ma20 || indicators.ma50 || indicators.bb || indicators.vwap || indicators.linreg || indicators.patterns || indicators.macd || indicators.fib) && (
         <div style={{ display: 'flex', gap: '0.75rem', padding: '4px 4px 0', fontSize: 10, fontFamily: 'var(--font-mono)', flexWrap: 'wrap' }}>
           {indicators.ma20     && <span style={{ color: '#60a5fa' }}>─ MA20</span>}
           {indicators.ma50     && <span style={{ color: '#f59e0b' }}>╌ MA50</span>}
@@ -468,6 +619,8 @@ export default function CandlestickChart({ data, height = 240, currency = 'USD',
           {showRSI             && <span style={{ color: '#a78bfa' }}>─ RSI(14)</span>}
           {indicators.linreg   && <span style={{ color: '#fb923c' }}>╌ LinReg</span>}
           {indicators.patterns && <span style={{ color: 'var(--color-text-muted)' }}>● Patterns</span>}
+          {indicators.macd     && <span style={{ color: '#e879f9' }}>─ MACD  <span style={{ color: '#fbbf24' }}>╌ Signal</span></span>}
+          {indicators.fib      && <span style={{ color: '#4ade80' }}>─ Fib</span>}
         </div>
       )}
     </div>

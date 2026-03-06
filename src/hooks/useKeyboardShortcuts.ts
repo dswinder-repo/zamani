@@ -1,6 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useShortcutsModal } from '../stores/shortcutsModal'
+import { useEasterEggs } from '../stores/easterEggs'
+
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a']
 
 /**
  * Global keyboard shortcuts for Zamani.
@@ -20,8 +23,10 @@ import { useShortcutsModal } from '../stores/shortcutsModal'
  *   G M  → Monitor mode
  */
 export function useKeyboardShortcuts() {
-  const navigate = useNavigate()
-  const openShortcuts = useShortcutsModal(s => s.open)
+  const navigate       = useNavigate()
+  const openShortcuts  = useShortcutsModal(s => s.open)
+  const { activateBeastMode, openOracle } = useEasterEggs()
+  const konamiBuf = useRef<string[]>([])
 
   useEffect(() => {
     let pendingG = false
@@ -38,6 +43,14 @@ export function useKeyboardShortcuts() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if ((e.target as HTMLElement).isContentEditable) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      // Konami code detection (works with any key, including arrows)
+      konamiBuf.current = [...konamiBuf.current, e.key].slice(-KONAMI.length)
+      if (konamiBuf.current.join(',') === KONAMI.join(',')) {
+        konamiBuf.current = []
+        activateBeastMode()
+        return
+      }
 
       const key = e.key.toLowerCase()
 
@@ -58,6 +71,7 @@ export function useKeyboardShortcuts() {
           case 'm': navigate('/monitor'); break
           case 's': navigate('/screener'); break
           case 'i': navigate('/economic-indicators'); break
+          case 'o': openOracle(); break
         }
         return
       }
@@ -78,5 +92,5 @@ export function useKeyboardShortcuts() {
       document.removeEventListener('keydown', handler)
       clearG()
     }
-  }, [navigate, openShortcuts])
+  }, [navigate, openShortcuts, activateBeastMode, openOracle])
 }

@@ -17,10 +17,12 @@ const SHORTCUTS = [
     { key: 'G M',  desc: 'Monitor mode' },
     { key: 'G S',  desc: 'Screener' },
     { key: 'G I',  desc: 'Economic Indicators' },
+    { key: 'G O',  desc: '🔮 Invoke the Oracle of Lagos' },
   ]},
   { group: 'General', items: [
     { key: '?',    desc: 'Show this keyboard shortcuts overlay' },
     { key: '/',    desc: 'Open command palette (search)' },
+    { key: '↑↑↓↓←→←→BA', desc: '⚡ Konami code — activate Bloomberg Beast Mode' },
   ]},
 ]
 

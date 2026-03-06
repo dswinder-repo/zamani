@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { useState } from 'react'
+import { TrendingUp, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react'
 import { provider, getLiveForex } from '../services/api'
 import type { IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from '../services/api'
 import IndexCard from '../components/market/IndexCard'
@@ -14,6 +15,7 @@ import YieldCurvePanel from '../components/market/YieldCurvePanel'
 import AfricaMap from '../components/market/AfricaMap'
 
 export default function Dashboard() {
+  const [cheatOpen, setCheatOpen] = useState(false)
   const { data: indices, isLoading: loadingIdx } = useQuery<IndexSnapshot[]>({
     queryKey: ['indices', 'all'],
     queryFn: () => provider.getIndices?.('all') ?? Promise.resolve([]),
@@ -154,6 +156,96 @@ export default function Dashboard() {
 
       </div>
 
+      {/* Cheat sheet */}
+      <div className="cheat-wrap panel">
+        <button className="cheat-toggle" onClick={() => setCheatOpen(v => !v)}>
+          <span className="cheat-toggle-label">Quick Reference — Keyboard Shortcuts & Features</span>
+          {cheatOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+        {cheatOpen && (
+          <div className="cheat-body">
+            <div className="cheat-col">
+              <div className="cheat-section-title">Navigation (G + key)</div>
+              {[
+                ['G D', 'Dashboard'],
+                ['G J', 'JSE Exchange'],
+                ['G U', 'USE Exchange'],
+                ['G N', 'NGX Exchange'],
+                ['G F', 'Forex rates'],
+                ['G W', 'Watchlist'],
+                ['G P', 'Portfolio'],
+                ['G A', 'Alerts'],
+                ['G S', 'Screener'],
+                ['G I', 'Macro indicators'],
+                ['G M', 'Monitor mode'],
+                ['?',   'Show all shortcuts'],
+              ].map(([k, d]) => (
+                <div key={k} className="cheat-row">
+                  <kbd className="cheat-key">{k}</kbd>
+                  <span className="cheat-desc">{d}</span>
+                </div>
+              ))}
+            </div>
+            <div className="cheat-col">
+              <div className="cheat-section-title">Chart Indicators</div>
+              {[
+                ['MA20 / MA50', '20 & 50-day moving averages'],
+                ['BB', 'Bollinger Bands (20-period)'],
+                ['VWAP', 'Volume-weighted average price'],
+                ['RSI', 'Relative Strength Index (14)'],
+                ['MACD', 'Momentum oscillator (12/26/9)'],
+                ['LR', 'Linear regression trendline'],
+                ['FIB', 'Fibonacci retracement levels'],
+                ['PAT', 'Candlestick pattern detection'],
+                ['1D~', 'Simulated intraday view'],
+              ].map(([k, d]) => (
+                <div key={k} className="cheat-row">
+                  <kbd className="cheat-key">{k}</kbd>
+                  <span className="cheat-desc">{d}</span>
+                </div>
+              ))}
+            </div>
+            <div className="cheat-col">
+              <div className="cheat-section-title">Live Data Sources</div>
+              {[
+                ['✅', 'JSE stocks — Yahoo Finance (.JO)'],
+                ['✅', 'USE stocks — use.or.ug live feed'],
+                ['✅', 'Commodities — Yahoo futures (GC=F, CL=F…)'],
+                ['✅', 'Forex — open.er-api.com (9 pairs)'],
+                ['✅', 'Macro — World Bank Open Data'],
+                ['✅', 'News — Google News RSS'],
+                ['✅', 'Yield curve — Yahoo (^IRX, ^TNX…)'],
+                ['⚠', 'NGX / NSE / GSE — no free source yet'],
+              ].map(([icon, d]) => (
+                <div key={d} className="cheat-row cheat-row--data">
+                  <span className="cheat-icon">{icon}</span>
+                  <span className="cheat-desc">{d}</span>
+                </div>
+              ))}
+            </div>
+            <div className="cheat-col">
+              <div className="cheat-section-title">Features</div>
+              {[
+                ['Screener', 'Filter & rank stocks across exchanges'],
+                ['Compare', 'Normalized chart + correlation matrix'],
+                ['Portfolio', 'P&L, allocation donut, risk metrics'],
+                ['Monitor', 'Full-screen watchlist grid'],
+                ['Alerts', 'Price & % change triggers'],
+                ['Yield Curve', 'US Treasuries inversion detection'],
+                ['Africa Map', 'Click exchanges on the map'],
+                ['Macro', 'World Bank GDP, CPI, unemployment'],
+                ['Export', 'CSV download on Exchange + Portfolio'],
+              ].map(([k, d]) => (
+                <div key={k} className="cheat-row">
+                  <span className="cheat-feat">{k}</span>
+                  <span className="cheat-desc">{d}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <style>{`
         .dashboard { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1400px; }
 
@@ -215,6 +307,49 @@ export default function Dashboard() {
           .dash-sentiment { gap: 0.5rem; }
           .dashboard      { gap: 1rem; }
         }
+
+        /* ── Cheat sheet ── */
+        .cheat-wrap { overflow: hidden; }
+        .cheat-toggle {
+          display: flex; align-items: center; justify-content: space-between;
+          width: 100%; padding: 0.625rem 0.875rem;
+          background: none; border: none; cursor: pointer;
+          color: var(--color-text-muted); font-size: 11px; font-weight: 600;
+          text-transform: uppercase; letter-spacing: 0.06em;
+          transition: color 0.15s; gap: 0.5rem;
+        }
+        .cheat-toggle:hover { color: var(--color-text-primary); }
+        .cheat-toggle-label { flex: 1; text-align: left; }
+        .cheat-body {
+          display: grid; grid-template-columns: repeat(4, 1fr);
+          gap: 1.5rem; padding: 0.75rem 0.875rem 1rem;
+          border-top: 1px solid var(--color-border-subtle);
+        }
+        @media (max-width: 1100px) { .cheat-body { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px)  { .cheat-body { grid-template-columns: 1fr; } }
+        .cheat-section-title {
+          font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
+          color: var(--color-gold); font-weight: 700; margin-bottom: 0.5rem;
+        }
+        .cheat-row {
+          display: flex; align-items: baseline; gap: 0.5rem;
+          margin-bottom: 4px; font-size: 11px;
+        }
+        .cheat-row--data { align-items: center; }
+        .cheat-key {
+          font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+          color: var(--color-gold); background: var(--color-gold-subtle);
+          border: 1px solid var(--color-gold-dim); border-radius: 3px;
+          padding: 1px 5px; white-space: nowrap; flex-shrink: 0; min-width: 40px;
+          text-align: center;
+        }
+        .cheat-feat {
+          font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+          color: var(--color-text-secondary); white-space: nowrap; flex-shrink: 0;
+          min-width: 72px;
+        }
+        .cheat-icon { font-size: 11px; flex-shrink: 0; width: 16px; }
+        .cheat-desc { color: var(--color-text-muted); font-size: 10px; line-height: 1.3; }
       `}</style>
     </div>
   )

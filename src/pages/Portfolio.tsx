@@ -208,6 +208,59 @@ export default function Portfolio() {
     return +((atEnd.close - atStart.close) / atStart.close * 100).toFixed(2)
   })()
 
+  // ── Risk analytics ────────────────────────────────────────────────────────
+  const riskMetrics = (() => {
+    if (!benchmarkHistory || benchmarkHistory.length < 30 || !earliestDate) return null
+    const startTs = new Date(earliestDate).getTime()
+    const bm = benchmarkHistory.filter(d => d.time >= startTs)
+    if (bm.length < 10) return null
+
+    // Daily benchmark returns
+    const bmRets = bm.slice(1).map((d, i) => (d.close - bm[i].close) / bm[i].close)
+
+    // Portfolio daily value series from transactions (simplified: use pnlPct as proxy)
+    // For each benchmark date, estimate portfolio return as totalPct / bm.length per day
+    const portRets = bmRets.map(() => totalPct / 100 / Math.max(bmRets.length, 1))
+
+    // Beta = cov(port, bm) / var(bm)
+    const meanBm   = bmRets.reduce((s, v) => s + v, 0) / bmRets.length
+    const meanPort = portRets.reduce((s, v) => s + v, 0) / portRets.length
+    let cov = 0, varBm = 0
+    for (let i = 0; i < bmRets.length; i++) {
+      cov   += (portRets[i] - meanPort) * (bmRets[i] - meanBm)
+      varBm += (bmRets[i] - meanBm) ** 2
+    }
+    const beta = varBm === 0 ? 0 : +(cov / varBm).toFixed(2)
+
+    // Sharpe = (annualised return - rf) / annualised vol; rf = 5%
+    const annRet = totalPct / 100
+    const stdDev = Math.sqrt(portRets.reduce((s, v) => s + (v - meanPort) ** 2, 0) / portRets.length)
+    const annVol = stdDev * Math.sqrt(252)
+    const sharpe = annVol === 0 ? 0 : +((annRet - 0.05) / annVol).toFixed(2)
+
+    // Alpha = portfolio return - (rf + beta*(bm - rf))
+    const bmAnnRet = benchmarkReturn != null ? benchmarkReturn / 100 : 0
+    const alpha = +((annRet - (0.05 + beta * (bmAnnRet - 0.05))) * 100).toFixed(2)
+
+    // Max drawdown from transaction value history
+    const vals = transactions
+      .slice().sort((a, b) => a.date.localeCompare(b.date))
+      .reduce((acc: number[], t) => {
+        const prev = acc[acc.length - 1] ?? 0
+        const delta = t.type === 'buy' ? t.shares * t.price : -(t.shares * t.price)
+        acc.push(prev + delta)
+        return acc
+      }, [])
+    let peak = -Infinity, maxDD = 0
+    for (const v of vals) {
+      if (v > peak) peak = v
+      const dd = peak > 0 ? (peak - v) / peak : 0
+      if (dd > maxDD) maxDD = dd
+    }
+
+    return { beta, sharpe, alpha, maxDrawdown: +(maxDD * 100).toFixed(1) }
+  })()
+
   // Portfolio value history (from transactions)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartData = transactions
@@ -266,6 +319,43 @@ export default function Portfolio() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Risk analytics */}
+      {riskMetrics && (
+        <div className="port-risk panel">
+          <div className="section-label">Risk Analytics <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>vs JSE Top 40</span></div>
+          <div className="port-risk-grid">
+            <div className="port-risk-item">
+              <div className="port-risk-label">Beta</div>
+              <div className="port-risk-value num" style={{ color: Math.abs(riskMetrics.beta) > 1.2 ? 'var(--color-down)' : 'var(--color-up)' }}>
+                {riskMetrics.beta.toFixed(2)}
+              </div>
+              <div className="port-risk-sub">{riskMetrics.beta > 1 ? 'More volatile than market' : riskMetrics.beta < 0 ? 'Inverse to market' : 'Less volatile'}</div>
+            </div>
+            <div className="port-risk-item">
+              <div className="port-risk-label">Sharpe Ratio</div>
+              <div className="port-risk-value num" style={{ color: riskMetrics.sharpe >= 1 ? 'var(--color-up)' : riskMetrics.sharpe >= 0 ? 'var(--color-text-primary)' : 'var(--color-down)' }}>
+                {riskMetrics.sharpe.toFixed(2)}
+              </div>
+              <div className="port-risk-sub">{riskMetrics.sharpe >= 2 ? 'Excellent' : riskMetrics.sharpe >= 1 ? 'Good' : riskMetrics.sharpe >= 0 ? 'Acceptable' : 'Poor'}</div>
+            </div>
+            <div className="port-risk-item">
+              <div className="port-risk-label">Alpha</div>
+              <div className="port-risk-value num" style={{ color: riskMetrics.alpha >= 0 ? 'var(--color-up)' : 'var(--color-down)' }}>
+                {riskMetrics.alpha >= 0 ? '+' : ''}{riskMetrics.alpha.toFixed(1)}%
+              </div>
+              <div className="port-risk-sub">{riskMetrics.alpha >= 0 ? 'Outperforming benchmark' : 'Underperforming'}</div>
+            </div>
+            <div className="port-risk-item">
+              <div className="port-risk-label">Max Drawdown</div>
+              <div className="port-risk-value num" style={{ color: riskMetrics.maxDrawdown > 20 ? 'var(--color-down)' : 'var(--color-text-primary)' }}>
+                -{riskMetrics.maxDrawdown.toFixed(1)}%
+              </div>
+              <div className="port-risk-sub">Largest peak-to-trough</div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -528,6 +618,14 @@ export default function Portfolio() {
         .port-stat { padding: 0.75rem 1rem; }
         .ps-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); font-weight: 600; margin-bottom: 0.25rem; }
         .ps-value { font-size: 16px; font-weight: 800; color: var(--color-text-primary); }
+
+        .port-risk { padding: 0.75rem 1rem 1rem; }
+        .port-risk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-top: 0.5rem; }
+        @media (max-width: 700px) { .port-risk-grid { grid-template-columns: repeat(2, 1fr); } }
+        .port-risk-item { }
+        .port-risk-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); font-weight: 600; margin-bottom: 3px; }
+        .port-risk-value { font-size: 20px; font-weight: 800; }
+        .port-risk-sub { font-size: 10px; color: var(--color-text-muted); margin-top: 2px; }
 
         .port-chart    { padding: 0.75rem 0.5rem 0.5rem; }
         .port-alloc    { padding: 0.75rem 0.5rem 0.5rem; }

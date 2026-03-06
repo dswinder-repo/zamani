@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Star, ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { provider } from '../services/api'
@@ -9,6 +9,7 @@ import CandlestickChart from '../components/charts/CandlestickChart'
 import type { ChartIndicators } from '../components/charts/CandlestickChart'
 import { useWatchlist } from '../stores/watchlist'
 import { ExchangeStatusBadge } from '../components/layout/MarketStatus'
+import { useEasterEggs } from '../stores/easterEggs'
 
 function computeHV(data: OHLCV[], period = 30): number | null {
   if (data.length < period + 1) return null
@@ -79,6 +80,8 @@ export default function StockDetail() {
   const [days, setDays] = useState(30)
   const [indicators, setIndicators] = useState<ChartIndicators>({})
   const { symbols: watchlistSyms, add, remove } = useWatchlist()
+  const { triggerSimba } = useEasterEggs()
+  const simbaFiredRef = useRef(false)
 
   function toggleIndicator(key: keyof ChartIndicators) {
     setIndicators(prev => ({ ...prev, [key]: !prev[key] }))
@@ -108,6 +111,15 @@ export default function StockDetail() {
   })
 
   const up = (quote?.changePct ?? 0) >= 0
+
+  // SIMBA! — trigger once if price is at/above 52-week high
+  useEffect(() => {
+    if (!quote || simbaFiredRef.current) return
+    if (quote.high52 && quote.price >= quote.high52 * 0.999) {
+      simbaFiredRef.current = true
+      triggerSimba(symbol)
+    }
+  }, [quote, symbol, triggerSimba])
 
   // Historical volatility (30-day annualized)
   const hv = useMemo(() => history ? computeHV(history) : null, [history])
@@ -222,14 +234,14 @@ export default function StockDetail() {
                 </button>
               </div>
               <div className="sd-indicator-tabs">
-                {(['ma20', 'ma50', 'bb', 'vwap', 'rsi', 'linreg', 'patterns'] as (keyof ChartIndicators)[]).map(k => (
+                {(['ma20', 'ma50', 'bb', 'vwap', 'rsi', 'macd', 'linreg', 'fib', 'patterns'] as (keyof ChartIndicators)[]).map(k => (
                   <button
                     key={k}
                     className={`sd-ind-tab ${indicators[k] ? 'active' : ''}`}
                     onClick={() => toggleIndicator(k)}
-                    title={k === 'linreg' ? 'Linear Regression' : k === 'patterns' ? 'Candlestick Patterns' : undefined}
+                    title={k === 'linreg' ? 'Linear Regression' : k === 'patterns' ? 'Candlestick Patterns' : k === 'fib' ? 'Fibonacci Retracement' : undefined}
                   >
-                    {k === 'linreg' ? 'LR' : k === 'patterns' ? 'PAT' : k.toUpperCase()}
+                    {k === 'linreg' ? 'LR' : k === 'patterns' ? 'PAT' : k === 'fib' ? 'FIB' : k.toUpperCase()}
                   </button>
                 ))}
               </div>

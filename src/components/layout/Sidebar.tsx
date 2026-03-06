@@ -8,6 +8,10 @@ import {
 } from 'lucide-react'
 import { useAlerts } from '../../stores/alerts'
 
+function JollofIcon({ size = 14 }: { size?: number }) {
+  return <span style={{ fontSize: size, lineHeight: 1 }}>🍚</span>
+}
+
 const EXCHANGES = [
   { id: 'jse',  label: 'JSE',  country: 'ZA', tier: 1 },
   { id: 'ngx',  label: 'NGX',  country: 'NG', tier: 1 },
@@ -32,6 +36,7 @@ const NAV: { to: string; icon: React.ComponentType<{ size?: number }>; label: st
   { to: '/screener',             icon: Filter,      label: 'Screener' },
   { to: '/economic-indicators',  icon: TrendingUp,  label: 'Macro' },
   { to: '/monitor',              icon: Monitor,     label: 'Monitor' },
+  { to: '/jollof-war',          icon: JollofIcon,  label: 'Jollof War' },
 ]
 
 interface SidebarProps {

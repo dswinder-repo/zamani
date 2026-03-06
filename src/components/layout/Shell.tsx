@@ -4,6 +4,7 @@ import Sidebar from './Sidebar'
 import TickerStrip from './TickerStrip'
 import CommandPalette from '../search/CommandPalette'
 import ShortcutsModal from '../shortcuts/ShortcutsModal'
+import { BeastModeOverlay, OracleModal, SimbaToast } from '../easter/EasterEggs'
 import { useCommandPalette } from '../../hooks/useCommandPalette'
 import { useShortcutsModal } from '../../stores/shortcutsModal'
 import { useAlertWatcher } from '../../hooks/useAlertWatcher'
@@ -48,6 +49,9 @@ export default function Shell({ children }: ShellProps) {
       </div>
       {isOpen && <CommandPalette onClose={close} />}
       {shortcutsOpen && <ShortcutsModal />}
+      <BeastModeOverlay />
+      <OracleModal />
+      <SimbaToast />
 
       <style>{`
         .shell {
