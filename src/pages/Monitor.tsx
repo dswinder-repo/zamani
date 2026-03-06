@@ -3,13 +3,29 @@
  * Shows all watchlist symbols with large price and change display.
  * Auto-refreshes every 30 seconds.
  */
-import { useEffect } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { X, Maximize2 } from 'lucide-react'
 import { provider } from '../services/api'
 import type { Quote } from '../services/api'
 import { useWatchlist } from '../stores/watchlist'
+
+/** Derive the app's exchange ID from the symbol suffix, since Yahoo returns "JNB" etc. */
+function symToExchangeId(sym: string): string {
+  const suffix = sym.split('.').pop()?.toLowerCase() ?? ''
+  switch (suffix) {
+    case 'jo':   return 'jse'
+    case 'use':  return 'use'
+    case 'ngx':  return 'ngx'
+    case 'nse':  return 'nse'
+    case 'gse':  return 'gse'
+    case 'brvm': return 'brvm'
+    case 'zse':  return 'zse'
+    case 'bse':  return 'bse'
+    case 'luse': return 'luse'
+    default:     return 'jse'
+  }
+}
 
 export default function Monitor() {
   const { symbols } = useWatchlist()
@@ -23,17 +39,8 @@ export default function Monitor() {
     })),
   })
 
-  // Request fullscreen on mount
-  useEffect(() => {
-    if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => { /* ignore */ })
-    }
-    return () => {
-      if (document.fullscreenElement && document.exitFullscreen) {
-        document.exitFullscreen().catch(() => { /* ignore */ })
-      }
-    }
-  }, [])
+  // No auto-fullscreen — causes browser black flash on mount/unmount.
+  // User can click the Maximize button to enter fullscreen manually.
 
   if (!symbols.length) {
     return (
@@ -76,7 +83,7 @@ export default function Monitor() {
           return (
             <Link
               key={sym}
-              to={`/exchange/${q?.exchange?.toLowerCase() ?? 'jse'}/stock/${encodeURIComponent(sym)}`}
+              to={`/exchange/${symToExchangeId(sym)}/stock/${encodeURIComponent(sym)}`}
               className={`mon-card ${loading ? 'loading' : ''} ${q ? (up ? 'up' : 'down') : ''}`}
             >
               <div className="mon-sym">{sym.split('.')[0]}</div>
