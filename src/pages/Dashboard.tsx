@@ -242,6 +242,27 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+
+            {/* Easter Eggs — full-width secret row */}
+            <div className="cheat-eggs">
+            <div className="cheat-eggs-label">🥚 Secret Codes</div>
+            <div className="cheat-eggs-row">
+              {[
+                { trigger: '↑↑↓↓←→←→BA', name: 'Bloomberg Beast Mode', desc: 'Konami code — activates a 30-day Bloomberg Terminal trial (fake)' },
+                { trigger: 'G O', name: 'Oracle of Lagos', desc: 'Summons the keeper of African market wisdom for a prophecy' },
+                { trigger: '/jollof-war', name: 'The Great Jollof War Index', desc: 'Nigeria vs Ghana — the eternal rice debate, settled by markets' },
+                { trigger: '🦁 Auto', name: 'SIMBA!', desc: 'Appears automatically when a stock you\'re viewing hits a 52-week high' },
+              ].map(({ trigger, name, desc }) => (
+                <div key={name} className="cheat-egg-item">
+                  <kbd className="cheat-egg-key">{trigger}</kbd>
+                  <div className="cheat-egg-body">
+                    <span className="cheat-egg-name">{name}</span>
+                    <span className="cheat-egg-desc">{desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </div>
           </div>
         )}
       </div>
@@ -350,6 +371,36 @@ export default function Dashboard() {
         }
         .cheat-icon { font-size: 11px; flex-shrink: 0; width: 16px; }
         .cheat-desc { color: var(--color-text-muted); font-size: 10px; line-height: 1.3; }
+
+        /* Easter eggs row */
+        .cheat-eggs {
+          grid-column: 1 / -1;
+          border-top: 1px solid var(--color-border-subtle);
+          padding-top: 0.75rem; margin-top: 0.25rem;
+        }
+        .cheat-eggs-label {
+          font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
+          color: var(--color-gold); font-weight: 700; margin-bottom: 0.5rem;
+        }
+        .cheat-eggs-row {
+          display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;
+        }
+        @media (max-width: 1100px) { .cheat-eggs-row { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px)  { .cheat-eggs-row { grid-template-columns: 1fr; } }
+        .cheat-egg-item {
+          display: flex; align-items: flex-start; gap: 0.5rem;
+          background: var(--color-gold-subtle);
+          border: 1px solid var(--color-gold-dim);
+          border-radius: 4px; padding: 0.5rem 0.625rem;
+        }
+        .cheat-egg-key {
+          font-family: var(--font-mono); font-size: 8px; font-weight: 700;
+          color: var(--color-gold); white-space: nowrap; flex-shrink: 0;
+          padding-top: 1px;
+        }
+        .cheat-egg-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .cheat-egg-name { font-size: 10px; font-weight: 700; color: var(--color-text-secondary); }
+        .cheat-egg-desc { font-size: 9px; color: var(--color-text-muted); line-height: 1.4; }
       `}</style>
     </div>
   )
