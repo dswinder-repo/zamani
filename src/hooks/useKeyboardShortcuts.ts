@@ -38,19 +38,19 @@ export function useKeyboardShortcuts() {
     }
 
     function handler(e: KeyboardEvent) {
-      // Don't fire when user is typing in an input
-      const tag = (e.target as HTMLElement).tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-      if ((e.target as HTMLElement).isContentEditable) return
-      if (e.metaKey || e.ctrlKey || e.altKey) return
-
-      // Konami code detection (works with any key, including arrows)
+      // Konami code — check first, before any guards, so it works globally
       konamiBuf.current = [...konamiBuf.current, e.key].slice(-KONAMI.length)
       if (konamiBuf.current.join(',') === KONAMI.join(',')) {
         konamiBuf.current = []
         activateBeastMode()
         return
       }
+
+      // Don't fire navigation shortcuts when user is typing in an input
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if ((e.target as HTMLElement).isContentEditable) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
 
       const key = e.key.toLowerCase()
 

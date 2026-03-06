@@ -15,7 +15,7 @@ import YieldCurvePanel from '../components/market/YieldCurvePanel'
 import AfricaMap from '../components/market/AfricaMap'
 
 export default function Dashboard() {
-  const [cheatOpen, setCheatOpen] = useState(false)
+  const [cheatOpen, setCheatOpen] = useState(true)
   const { data: indices, isLoading: loadingIdx } = useQuery<IndexSnapshot[]>({
     queryKey: ['indices', 'all'],
     queryFn: () => provider.getIndices?.('all') ?? Promise.resolve([]),
