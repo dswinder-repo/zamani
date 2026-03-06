@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { PlusCircle, Trash2, Briefcase, Download } from 'lucide-react'
 import { downloadCSV } from '../utils/csvExport'
@@ -153,10 +153,15 @@ function AddTxModal({ onClose, onAdd }: {
 
 // ── Portfolio page ────────────────────────────────────────────────────────────
 
+import { useEasterEggs } from '../stores/easterEggs'
+
 export default function Portfolio() {
   const { transactions, addTransaction, removeTransaction, getHoldings } = usePortfolio()
   const [showAdd, setShowAdd] = useState(false)
   const [activeTab, setActiveTab] = useState<'holdings' | 'transactions'>('holdings')
+  const { triggerHakuna, triggerCircle } = useEasterEggs()
+  const hakunaFiredRef = useRef(false)
+  const circleFiredRef = useRef(false)
 
   const holdings = getHoldings()
 
@@ -186,6 +191,25 @@ export default function Portfolio() {
   const totalPnl   = totalValue - totalCost
   const totalPct   = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
   const portfolioUp = totalPnl >= 0
+
+  // Easter egg auto-triggers
+  useEffect(() => {
+    if (enriched.length === 0) return
+    // Hakuna Matata — portfolio down > 5%
+    if (!hakunaFiredRef.current && totalPct < -5) {
+      hakunaFiredRef.current = true
+      triggerHakuna(Math.abs(totalPct))
+    }
+    // Circle of Life — new all-time high
+    const storedAth = parseFloat(localStorage.getItem('zamani-portfolio-ath') ?? '0')
+    if (totalValue > 0 && totalValue > storedAth * 1.001) {
+      localStorage.setItem('zamani-portfolio-ath', String(totalValue))
+      if (!circleFiredRef.current && storedAth > 0) {
+        circleFiredRef.current = true
+        triggerCircle(totalValue)
+      }
+    }
+  }, [totalPct, totalValue, enriched.length, triggerHakuna, triggerCircle])
 
   // Benchmark: JSE Top 40 (^J200) return since earliest transaction
   const earliestDate = transactions.length

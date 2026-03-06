@@ -25,6 +25,11 @@ const SHORTCUTS = [
     { key: '/',    desc: 'Open command palette (search)' },
     { key: '↑↑↓↓←→←→BA', desc: '⚡ Konami code — activate Bloomberg Beast Mode' },
   ]},
+  { group: '· · ·', items: [
+    { key: 'G Z',  desc: '🏭' },
+    { key: 'G H',  desc: '🐗' },
+    { key: 'G R',  desc: '🌅' },
+  ]},
 ]
 
 export default function ShortcutsModal() {

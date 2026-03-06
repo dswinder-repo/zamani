@@ -248,13 +248,20 @@ export default function Dashboard() {
             <div className="cheat-eggs-label">🥚 Secret Codes</div>
             <div className="cheat-eggs-row">
               {[
-                { trigger: '↑↑↓↓←→←→BA', name: 'Bloomberg Beast Mode', desc: 'Konami code — activates a 30-day Bloomberg Terminal trial (fake)' },
-                { trigger: 'G O', name: 'Oracle of Lagos', desc: 'Summons the keeper of African market wisdom for a prophecy' },
-                { trigger: '/jollof-war', name: 'The Great Jollof War Index', desc: 'Nigeria vs Ghana — the eternal rice debate, settled by markets' },
-                { trigger: 'G L', name: 'SIMBA!', desc: 'Manual lion toast. Also fires automatically when a stock hits its 52-week high.' },
-              ].map(({ trigger, name, desc }) => (
+                { trigger: '↑↑↓↓←→←→BA', reveal: null,  name: 'Bloomberg Beast Mode',    desc: 'Konami code — activates a 30-day Bloomberg Terminal trial (fake)' },
+                { trigger: 'G O',          reveal: null,  name: 'Oracle of Lagos',          desc: 'Summons the keeper of African market wisdom for a prophecy' },
+                { trigger: '/jollof-war',  reveal: null,  name: 'The Great Jollof War',     desc: 'Nigeria vs Ghana — the eternal rice debate, settled by markets' },
+                { trigger: 'G L',          reveal: null,  name: 'SIMBA!',                   desc: 'Also fires automatically when a stock hits its 52-week high' },
+                { trigger: '[???]',        reveal: 'G Z', name: 'What Would Dangote Do?',   desc: 'Wisdom from Africa\'s richest person, delivered with authority' },
+                { trigger: '[???]',        reveal: 'G H', name: 'Hakuna Matata',             desc: 'Also fires automatically when your portfolio is down more than 5%' },
+                { trigger: '[???]',        reveal: 'G R', name: 'Circle of Life',            desc: 'Also fires automatically when your portfolio hits a new all-time high' },
+              ].map(({ trigger, reveal, name, desc }) => (
                 <div key={name} className="cheat-egg-item">
-                  <kbd className="cheat-egg-key">{trigger}</kbd>
+                  <kbd className="cheat-egg-key" data-reveal={reveal ?? undefined}
+                    style={reveal ? { cursor: 'help', position: 'relative' } : undefined}>
+                    {trigger}
+                    {reveal && <span className="cheat-egg-tooltip">{reveal}</span>}
+                  </kbd>
                   <div className="cheat-egg-body">
                     <span className="cheat-egg-name">{name}</span>
                     <span className="cheat-egg-desc">{desc}</span>
@@ -383,10 +390,8 @@ export default function Dashboard() {
           color: var(--color-gold); font-weight: 700; margin-bottom: 0.5rem;
         }
         .cheat-eggs-row {
-          display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;
+          display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem;
         }
-        @media (max-width: 1100px) { .cheat-eggs-row { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 600px)  { .cheat-eggs-row { grid-template-columns: 1fr; } }
         .cheat-egg-item {
           display: flex; align-items: flex-start; gap: 0.5rem;
           background: var(--color-gold-subtle);
@@ -401,6 +406,15 @@ export default function Dashboard() {
         .cheat-egg-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
         .cheat-egg-name { font-size: 10px; font-weight: 700; color: var(--color-text-secondary); }
         .cheat-egg-desc { font-size: 9px; color: var(--color-text-muted); line-height: 1.4; }
+        .cheat-egg-tooltip {
+          display: none; position: absolute; bottom: calc(100% + 4px); left: 50%;
+          transform: translateX(-50%);
+          background: var(--color-bg-primary); border: 1px solid var(--color-gold);
+          color: var(--color-gold); font-size: 9px; font-weight: 700;
+          padding: 2px 7px; border-radius: 3px; white-space: nowrap;
+          pointer-events: none; z-index: 10;
+        }
+        .cheat-egg-key:hover .cheat-egg-tooltip { display: block; }
       `}</style>
     </div>
   )
