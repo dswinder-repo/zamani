@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Bell, Settings, ExternalLink, Menu, Sun, Moon } from 'lucide-react'
+import { Search, Bell, ExternalLink, Menu, Sun, Moon } from 'lucide-react'
 import NdebeleStrip from '../patterns/NdebeleStrip'
 import Clock from './Clock'
 import MarketStatus from './MarketStatus'
@@ -138,10 +138,6 @@ export default function Topbar({ onSearch, onMenuToggle }: TopbarProps) {
             {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
           </button>
 
-          {/* Settings — hidden on smallest screens */}
-          <button className="icon-btn topbar-desktop-only" aria-label="Settings">
-            <Settings size={14} />
-          </button>
         </div>
       </div>
 

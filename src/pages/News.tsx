@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Search } from 'lucide-react'
 import { provider } from '../services/api'
 import type { NewsItem } from '../services/api'
+import MediaPanel from '../components/news/MediaPanel'
 
 const EXCHANGE_FILTERS = ['All', 'JSE', 'NGX', 'NSE', 'GSE', 'BRVM', 'ZSE', 'BSE', 'LUSE']
 
@@ -83,6 +84,14 @@ export default function News() {
         </div>
       </div>
 
+      {/* Live TV panel — collapsible */}
+      <details className="news-tv-details">
+        <summary className="news-tv-summary">📺 Live Business TV</summary>
+        <div className="news-tv-panel">
+          <MediaPanel />
+        </div>
+      </details>
+
       <div className="news-count">
         {isLoading ? 'Loading…' : `${filtered.length} article${filtered.length !== 1 ? 's' : ''}`}
       </div>
@@ -128,6 +137,19 @@ export default function News() {
         }
         .nf-tab:hover  { color: var(--color-text-secondary); border-color: var(--color-text-muted); }
         .nf-tab.active { color: var(--color-gold); border-color: var(--color-gold-dim); background: var(--color-gold-subtle); }
+
+        /* Live TV */
+        .news-tv-details { }
+        .news-tv-summary {
+          font-size: 11px; font-weight: 700; cursor: pointer;
+          color: var(--color-text-muted); padding: 4px 2px;
+          list-style: none; display: flex; align-items: center; gap: 6px;
+          user-select: none; transition: color 0.1s;
+        }
+        .news-tv-summary::-webkit-details-marker { display: none; }
+        .news-tv-summary:hover { color: var(--color-gold); }
+        details[open] .news-tv-summary { color: var(--color-gold); }
+        .news-tv-panel { margin-top: 0.5rem; max-width: 600px; }
 
         .news-count { font-size: 10px; color: var(--color-text-muted); font-family: var(--font-mono); }
 

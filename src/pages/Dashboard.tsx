@@ -7,13 +7,13 @@ import type { IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from '../se
 import IndexCard from '../components/market/IndexCard'
 import ForexTable from '../components/market/ForexTable'
 import NewsFeed from '../components/news/NewsFeed'
+import MediaPanel from '../components/news/MediaPanel'
 import TopMovers from '../components/market/TopMovers'
 import CommoditiesPanel from '../components/market/CommoditiesPanel'
 import WatchlistPanel from '../components/watchlist/WatchlistPanel'
 import NdebelePanel from '../components/patterns/NdebelePanel'
 import GlobalMarketsBar from '../components/market/GlobalMarketsBar'
 import YieldCurvePanel from '../components/market/YieldCurvePanel'
-import AfricaMap from '../components/market/AfricaMap'
 
 export default function Dashboard() {
   const [cheatOpen, setCheatOpen] = useState(true)
@@ -111,12 +111,6 @@ export default function Dashboard() {
             <WatchlistPanel />
           </section>
 
-          <section className="dash-section">
-            <div className="section-label">Exchanges</div>
-            <div className="panel" style={{ padding: '0.5rem' }}>
-              <AfricaMap />
-            </div>
-          </section>
         </div>
 
         {/* Col 2: Forex + Commodities + Yield Curve */}
@@ -143,12 +137,16 @@ export default function Dashboard() {
           </section>
         </div>
 
-        {/* Col 3: News + On This Day */}
+        {/* Col 3: Live TV + News + On This Day */}
         <div className="dash-col">
+          <section className="dash-section">
+            <div className="section-label">Live Business TV</div>
+            <MediaPanel />
+          </section>
           <section className="dash-section">
             <div className="section-label">Latest News</div>
             {loadingNews
-              ? <Skeleton height={400} />
+              ? <Skeleton height={200} />
               : (news?.length ?? 0) > 0
                 ? <NewsFeed items={news ?? []} />
                 : <DashEmpty message="Live news feed not yet connected" />}
