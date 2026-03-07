@@ -1,22 +1,23 @@
 /**
  * MediaPanel — Live business news TV for African markets.
  *
- * Embed strategy (in priority order):
- *  1. Official iframe embeds  — Al Jazeera (Brightcove), France 24 (embed.france24.com)
- *  2. HLS via hls.js          — DW Africa, TRT World (public Akamai/CDN streams)
- *  3. Link-only               — CNBC Africa, Channels TV, Arise, NTV Kenya
+ * Embed strategy:
+ *  1. Official iframe   — Al Jazeera (Brightcove CDN), France 24 (embed.france24.com)
+ *  2. HLS direct        — BBC Akamai, CNBC Africa CloudFront, DW Akamai, TRT World CDN,
+ *                         Channels TV Push2Stream, Arise VisionIP
+ *  3. HLS via proxy     — Bloomberg Fastly (needs Referer: bloomberg.com)
+ *  4. Link-only         — NTV Kenya (no public stream found)
  *
- * Sources:
- *  - AJE: players.brightcove.net (Al Jazeera's official Brightcove account)
- *  - F24: embed.france24.com/en/live (officially supported embed endpoint)
- *  - DW:  dwamdstream107.akamaized.net (public Akamai HLS)
- *  - TRT: tv-trtworld.live.trt.com.tr (Turkish public broadcaster, open CORS)
+ * The Cloudflare Worker at VITE_YAHOO_PROXY_URL adds the /stream-proxy route
+ * which spoofs the Referer header for sources that enforce it on their manifests.
  */
 import { useState, useEffect, useRef } from 'react'
 import Hls from 'hls.js'
 import { ExternalLink, Tv } from 'lucide-react'
 
-type EmbedType = 'iframe' | 'hls' | 'none'
+const PROXY = import.meta.env.VITE_YAHOO_PROXY_URL ?? ''
+
+type EmbedType = 'iframe' | 'hls' | 'hls-proxy' | 'none'
 
 interface Channel {
   id:          string
@@ -26,7 +27,11 @@ interface Channel {
   flag:        string
   description: string
   embedType:   EmbedType
-  embedSrc:    string | null   // iframe src OR hls m3u8 URL
+  // For 'iframe' / 'hls': direct URL
+  // For 'hls-proxy': the upstream m3u8 URL (worker adds Referer)
+  embedSrc:    string | null
+  // For 'hls-proxy': the Referer value to spoof
+  proxyReferer?: string
   watchUrl:    string
 }
 
@@ -37,9 +42,8 @@ const CHANNELS: Channel[] = [
     shortName:   'Al Jazeera',
     region:      'Global / Africa',
     flag:        '🇶🇦',
-    description: 'Al Jazeera\'s 24/7 English live stream — comprehensive Africa and Middle East coverage.',
+    description: 'Al Jazeera\'s 24/7 English stream — comprehensive Africa and Middle East coverage.',
     embedType:   'iframe',
-    // Official Brightcove player — Al Jazeera's own CDN, not YouTube
     embedSrc:    'https://players.brightcove.net/665003303001/AvByVmBYDu_default/index.html?videoId=6368602483112',
     watchUrl:    'https://www.aljazeera.com/live/',
   },
@@ -49,11 +53,47 @@ const CHANNELS: Channel[] = [
     shortName:   'France 24',
     region:      'Global / Africa',
     flag:        '🇫🇷',
-    description: 'France 24\'s official live embed — strong Africa Bureau and Francophone Africa coverage.',
+    description: 'France 24\'s officially-supported embed — strong Francophone Africa coverage.',
     embedType:   'iframe',
-    // Official embed endpoint that France 24 actively maintains for third-party embedding
     embedSrc:    'https://embed.france24.com/en/live',
     watchUrl:    'https://www.france24.com/en/live-news/',
+  },
+  {
+    id:          'bbc-world',
+    name:        'BBC World News',
+    shortName:   'BBC World',
+    region:      'Global / Africa',
+    flag:        '🇬🇧',
+    description: 'BBC\'s international 24/7 news channel. Strong Africa Bureau reporting.',
+    embedType:   'hls',
+    // Akamai worldwide endpoint — not UK-only
+    embedSrc:    'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/mobile_wifi_main_hd_abr_v2.m3u8',
+    watchUrl:    'https://www.bbc.com/news/av/10462520/watch-bbc-world-news',
+  },
+  {
+    id:          'cnbc-africa',
+    name:        'CNBC Africa',
+    shortName:   'CNBC Africa',
+    region:      'Pan-African',
+    flag:        '🌍',
+    description: 'Sub-Saharan African markets and business news — JSE, NGX, NSE coverage.',
+    embedType:   'hls',
+    // CloudFront stream found in cnbcafrica.com/live page source
+    embedSrc:    'https://dr4ml9ab0dhif.cloudfront.net/out/v1/5710c90584544be4ba1270f7d8d69932/index.m3u8',
+    watchUrl:    'https://www.cnbcafrica.com/live-tv/',
+  },
+  {
+    id:          'bloomberg-tv',
+    name:        'Bloomberg Television',
+    shortName:   'Bloomberg TV',
+    region:      'Global / Africa',
+    flag:        '🇺🇸',
+    description: 'Global markets and finance. Bloomberg Africa Equity Report airs weekdays.',
+    embedType:   'hls-proxy',
+    // Fastly CDN stream — requires Referer: bloomberg.com on the manifest request
+    embedSrc:    'https://liveproduseast.global.ssl.fastly.net/us/Channel-USTV-AWS-virginia-1/Source-USTV-1000-1_live.m3u8',
+    proxyReferer: 'https://www.bloomberg.com/',
+    watchUrl:    'https://www.bloomberg.com/live',
   },
   {
     id:          'dw-africa',
@@ -61,9 +101,8 @@ const CHANNELS: Channel[] = [
     shortName:   'DW Africa',
     region:      'Pan-African',
     flag:        '🇩🇪',
-    description: 'Deutsche Welle\'s dedicated Africa channel. Business and economic reporting in English.',
+    description: 'Deutsche Welle\'s dedicated Africa channel. Business and economic reporting.',
     embedType:   'hls',
-    // Public Akamai HLS stream for DW English (includes Africa programming)
     embedSrc:    'https://dwamdstream107.akamaized.net/hls/live/2017968/dwstream107/stream05/streamPlaylist.m3u8',
     watchUrl:    'https://www.dw.com/en/media-center/live-tv/s-100825',
   },
@@ -75,20 +114,8 @@ const CHANNELS: Channel[] = [
     flag:        '🇹🇷',
     description: 'Turkish public broadcaster. 24/7 international news with solid Africa coverage.',
     embedType:   'hls',
-    // TRT World public CDN stream — open CORS
     embedSrc:    'https://tv-trtworld.live.trt.com.tr/master.m3u8',
     watchUrl:    'https://www.trtworld.com/watch',
-  },
-  {
-    id:          'cnbc-africa',
-    name:        'CNBC Africa',
-    shortName:   'CNBC Africa',
-    region:      'Pan-African',
-    flag:        '🌍',
-    description: 'Sub-Saharan African markets and business news — JSE, NGX, NSE coverage.',
-    embedType:   'none',
-    embedSrc:    null,
-    watchUrl:    'https://www.cnbcafrica.com/live-tv/',
   },
   {
     id:          'channels-tv',
@@ -97,8 +124,9 @@ const CHANNELS: Channel[] = [
     region:      'Nigeria',
     flag:        '🇳🇬',
     description: 'Nigeria\'s leading 24-hour news channel. NGX and Nigerian economy coverage.',
-    embedType:   'none',
-    embedSrc:    null,
+    embedType:   'hls',
+    // Push2Stream — confirmed live Jan 2026 on iptvcat.net
+    embedSrc:    'https://cs2.push2stream.com/CHANNELSTV-DVR/playlist.m3u8',
     watchUrl:    'https://www.channelstv.com/live-tv/',
   },
   {
@@ -108,8 +136,9 @@ const CHANNELS: Channel[] = [
     region:      'West Africa',
     flag:        '🇳🇬',
     description: 'Pan-African international TV, Nigeria-based. Business and markets programming.',
-    embedType:   'none',
-    embedSrc:    null,
+    embedType:   'hls',
+    // VisionIP player stream — tries direct; falls back to link if Referer blocked
+    embedSrc:    'https://embeddedplayer.visionip.tv/index.php?module=playlist&type=m3u8_mb&b2b=1&broadcastid=15718&protocolid=5&datarateid=3&user=AriseNew-VideoJS&www=www.arise.tv',
     watchUrl:    'https://www.arise.tv/live',
   },
   {
@@ -125,7 +154,7 @@ const CHANNELS: Channel[] = [
   },
 ]
 
-// ── HLS video player ─────────────────────────────────────────────────────────
+// ── HLS player ───────────────────────────────────────────────────────────────
 
 function HlsPlayer({ src, onError }: { src: string; onError: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -134,7 +163,6 @@ function HlsPlayer({ src, onError }: { src: string; onError: () => void }) {
     const video = videoRef.current
     if (!video) return
 
-    // Safari / iOS — native HLS support
     if (!Hls.isSupported()) {
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = src
@@ -144,32 +172,14 @@ function HlsPlayer({ src, onError }: { src: string; onError: () => void }) {
       return
     }
 
-    const hls = new Hls({
-      maxBufferLength: 15,
-      maxMaxBufferLength: 30,
-      enableWorker: true,
-    })
-
-    hls.on(Hls.Events.ERROR, (_event, data) => {
-      if (data.fatal) onError()
-    })
-
+    const hls = new Hls({ maxBufferLength: 15, maxMaxBufferLength: 30 })
+    hls.on(Hls.Events.ERROR, (_e, data) => { if (data.fatal) onError() })
     hls.loadSource(src)
     hls.attachMedia(video)
-
     return () => hls.destroy()
   }, [src, onError])
 
-  return (
-    <video
-      ref={videoRef}
-      className="mp-video"
-      controls
-      autoPlay={false}
-      muted
-      playsInline
-    />
-  )
+  return <video ref={videoRef} className="mp-video" controls muted playsInline />
 }
 
 // ── Main panel ───────────────────────────────────────────────────────────────
@@ -180,15 +190,21 @@ export default function MediaPanel() {
 
   const active = CHANNELS.find(c => c.id === activeId) ?? CHANNELS[0]
   const failed = embedFailed[active.id]
-  const canEmbed = active.embedSrc && !failed
-
-  function selectChannel(id: string) {
-    setActiveId(id)
-  }
+  const canEmbed = !!active.embedSrc && !failed
 
   function handleEmbedError() {
     setEmbedFailed(prev => ({ ...prev, [active.id]: true }))
   }
+
+  // Resolve HLS source — proxy manifest for channels that need it
+  function resolveHlsSrc(channel: Channel): string {
+    if (channel.embedType === 'hls-proxy' && PROXY && channel.embedSrc) {
+      return `${PROXY}/stream-proxy?url=${encodeURIComponent(channel.embedSrc)}&referer=${encodeURIComponent(channel.proxyReferer ?? '')}`
+    }
+    return channel.embedSrc ?? ''
+  }
+
+  const hasEmbed = (c: Channel) => c.embedType !== 'none' && !embedFailed[c.id]
 
   return (
     <div className="mp-wrap">
@@ -199,14 +215,12 @@ export default function MediaPanel() {
           <button
             key={c.id}
             className={`mp-tab ${c.id === activeId ? 'mp-tab--active' : ''}`}
-            onClick={() => selectChannel(c.id)}
+            onClick={() => { setActiveId(c.id) }}
             title={c.name}
           >
             <span className="mp-tab-flag">{c.flag}</span>
             <span className="mp-tab-name">{c.shortName}</span>
-            {c.embedType !== 'none' && !embedFailed[c.id] && (
-              <span className="mp-live-dot" title="Live stream available" />
-            )}
+            {hasEmbed(c) && <span className="mp-live-dot" />}
           </button>
         ))}
       </div>
@@ -217,12 +231,7 @@ export default function MediaPanel() {
           <span className="mp-channel-name">{active.name}</span>
           <span className="mp-channel-region">{active.region}</span>
         </div>
-        <a
-          href={active.watchUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mp-external-btn"
-        >
+        <a href={active.watchUrl} target="_blank" rel="noopener noreferrer" className="mp-external-btn">
           <ExternalLink size={10} /> Open in new tab
         </a>
       </div>
@@ -230,13 +239,7 @@ export default function MediaPanel() {
       {/* Player */}
       {canEmbed ? (
         <div className="mp-player-wrap">
-          {active.embedType === 'hls' ? (
-            <HlsPlayer
-              key={active.id}
-              src={active.embedSrc!}
-              onError={handleEmbedError}
-            />
-          ) : (
+          {active.embedType === 'iframe' ? (
             <iframe
               key={active.id}
               src={active.embedSrc!}
@@ -246,33 +249,30 @@ export default function MediaPanel() {
               allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
               onError={handleEmbedError}
             />
+          ) : (
+            <HlsPlayer
+              key={active.id}
+              src={resolveHlsSrc(active)}
+              onError={handleEmbedError}
+            />
           )}
         </div>
       ) : (
         <div className="mp-no-embed">
           <Tv size={26} style={{ opacity: 0.12, marginBottom: '0.5rem' }} />
           <p className="mp-no-embed-desc">{active.description}</p>
-          {active.embedType === 'none' ? (
-            <p className="mp-no-embed-note">
-              {active.shortName} streams live on their website — direct embedding is not permitted.
-            </p>
-          ) : (
-            <p className="mp-no-embed-note">
-              Stream failed to load — may be a CORS restriction or temporary outage.
-            </p>
-          )}
-          <a
-            href={active.watchUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mp-watch-btn"
-          >
+          <p className="mp-no-embed-note">
+            {active.embedType === 'none'
+              ? `${active.shortName} streams live on their website — direct embedding is not permitted.`
+              : 'Stream unavailable — may be geo-restricted or temporarily down.'}
+          </p>
+          <a href={active.watchUrl} target="_blank" rel="noopener noreferrer" className="mp-watch-btn">
             <ExternalLink size={11} /> Watch {active.shortName} live →
           </a>
         </div>
       )}
 
-      {/* Quick-access channel grid */}
+      {/* Channel grid */}
       <div className="mp-all-channels">
         <div className="mp-all-label">All Channels</div>
         <div className="mp-channel-grid">
@@ -280,23 +280,20 @@ export default function MediaPanel() {
             <button
               key={c.id}
               className={`mp-channel-card ${c.id === activeId ? 'mp-channel-card--active' : ''}`}
-              onClick={() => selectChannel(c.id)}
+              onClick={() => setActiveId(c.id)}
             >
               <span className="mp-cc-flag">{c.flag}</span>
               <div className="mp-cc-info">
                 <span className="mp-cc-name">{c.shortName}</span>
                 <span className="mp-cc-region">{c.region}</span>
               </div>
-              {c.embedType !== 'none' && !embedFailed[c.id]
-                ? <span className="mp-cc-live" title="Live embed">●</span>
-                : null}
+              {hasEmbed(c) && <span className="mp-cc-live">●</span>}
               <a
                 href={c.watchUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mp-cc-link"
                 onClick={e => e.stopPropagation()}
-                title="Open live stream"
               >
                 <ExternalLink size={9} />
               </a>
@@ -312,8 +309,6 @@ export default function MediaPanel() {
           border: 1px solid var(--color-border);
           border-radius: 4px; overflow: hidden;
         }
-
-        /* Tabs */
         .mp-tabs {
           display: flex; overflow-x: auto;
           border-bottom: 1px solid var(--color-border-subtle);
@@ -336,8 +331,6 @@ export default function MediaPanel() {
           background: var(--color-up); flex-shrink: 0;
           box-shadow: 0 0 4px var(--color-up);
         }
-
-        /* Info bar */
         .mp-info-bar {
           display: flex; align-items: center; justify-content: space-between;
           padding: 0.3rem 0.75rem;
@@ -353,16 +346,12 @@ export default function MediaPanel() {
           border: 1px solid var(--color-border); transition: all 0.1s; white-space: nowrap;
         }
         .mp-external-btn:hover { color: var(--color-gold); border-color: var(--color-gold-dim); }
-
-        /* Player */
         .mp-player-wrap {
           position: relative; width: 100%; aspect-ratio: 16/9;
           background: #000; overflow: hidden;
         }
         .mp-iframe { width: 100%; height: 100%; border: none; display: block; }
         .mp-video  { width: 100%; height: 100%; display: block; background: #000; }
-
-        /* Fallback */
         .mp-no-embed {
           padding: 1.5rem 1rem; text-align: center;
           display: flex; flex-direction: column; align-items: center;
@@ -375,12 +364,9 @@ export default function MediaPanel() {
           display: inline-flex; align-items: center; gap: 5px;
           padding: 6px 14px; border-radius: 3px; font-size: 11px; font-weight: 700;
           background: var(--color-gold-subtle); border: 1px solid var(--color-gold-dim);
-          color: var(--color-gold); text-decoration: none; transition: all 0.1s;
-          margin-top: 0.25rem;
+          color: var(--color-gold); text-decoration: none; transition: all 0.1s; margin-top: 0.25rem;
         }
         .mp-watch-btn:hover { background: var(--color-gold-dim); color: var(--color-bg-primary); }
-
-        /* Channel grid */
         .mp-all-channels { padding: 0.5rem 0.75rem; border-top: 1px solid var(--color-border-subtle); }
         .mp-all-label {
           font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
