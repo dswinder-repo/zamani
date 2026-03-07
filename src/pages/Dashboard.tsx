@@ -1,17 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import {
   TrendingUp, TrendingDown, ChevronDown, ChevronUp, GripVertical, RotateCcw,
 } from 'lucide-react'
-import {
-  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
-  closestCenter, useDroppable,
-  type DragStartEvent, type DragEndEvent, type DragOverEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext, useSortable, verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 
 import { getFactForToday } from '../data/onThisDay'
 import { provider, getLiveForex } from '../services/api'
@@ -41,51 +32,40 @@ const PANEL_LABELS: Record<PanelId, string> = {
   'on-this-day': 'On This Day',
 }
 
-// ── Sortable panel wrapper ───────────────────────────────────────────────────
+// ── Draggable panel wrapper (HTML5 native DnD) ───────────────────────────────
 
-function SortablePanel({ id, children }: { id: PanelId; children: React.ReactNode }) {
-  const {
-    attributes, listeners, setNodeRef, transform, transition, isDragging,
-  } = useSortable({ id })
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-    position: 'relative',
-  }
+function DraggablePanel({
+  id, dragId, dropOver, onDragStart, onDragEnd, onDrop, onDragOver, children,
+}: {
+  id: PanelId
+  dragId: PanelId | null
+  dropOver: string | null
+  onDragStart: (id: PanelId, e: React.DragEvent) => void
+  onDragEnd: () => void
+  onDrop: (target: string, e: React.DragEvent) => void
+  onDragOver: (id: string, e: React.DragEvent) => void
+  children: React.ReactNode
+}) {
+  const isDragging = dragId === id
+  const isOver     = dropOver === id && dragId !== id
 
   return (
-    <section ref={setNodeRef} style={style} className="dash-section sortable-panel">
+    <section
+      className={`dash-section draggable-panel${isDragging ? ' panel-dragging' : ''}${isOver ? ' panel-drop-over' : ''}`}
+      draggable
+      onDragStart={e => onDragStart(id, e)}
+      onDragEnd={onDragEnd}
+      onDragOver={e => onDragOver(id, e)}
+      onDrop={e => onDrop(id, e)}
+    >
       <div className="section-label-row">
         <span className="section-label">{PANEL_LABELS[id]}</span>
-        <button
-          className="drag-handle"
-          {...listeners}
-          {...attributes}
-          aria-label={`Drag ${PANEL_LABELS[id]}`}
-          tabIndex={-1}
-        >
+        <span className="drag-handle" title="Drag to reorder">
           <GripVertical size={12} />
-        </button>
+        </span>
       </div>
       {children}
     </section>
-  )
-}
-
-// ── Column container ─────────────────────────────────────────────────────────
-
-function DashColumn({ colId, panels, children }: {
-  colId: string
-  panels: PanelId[]
-  children: React.ReactNode
-}) {
-  const { setNodeRef } = useDroppable({ id: colId })
-  return (
-    <SortableContext id={colId} items={panels} strategy={verticalListSortingStrategy}>
-      <div ref={setNodeRef} className="dash-col">{children}</div>
-    </SortableContext>
   )
 }
 
@@ -94,21 +74,8 @@ function DashColumn({ colId, panels, children }: {
 export default function Dashboard() {
   const [cheatOpen, setCheatOpen] = useState(true)
   const { columns, setColumns, resetLayout } = useDashLayout()
-  const [activeId, setActiveId] = useState<PanelId | null>(null)
-  const [working,  setWorkingState] = useState<[PanelId[], PanelId[], PanelId[]] | null>(null)
-  // Ref keeps onDragOver from using stale closure state
-  const workingRef = useRef<[PanelId[], PanelId[], PanelId[]] | null>(null)
-  function setWorking(v: [PanelId[], PanelId[], PanelId[]] | null) {
-    workingRef.current = v
-    setWorkingState(v)
-  }
-
-  // The columns we actually render — use working copy during drag for live preview
-  const displayCols = working ?? columns
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  )
+  const [dragId,   setDragId]   = useState<PanelId | null>(null)
+  const [dropOver, setDropOver] = useState<string | null>(null)
 
   // ── Data queries ────────────────────────────────────────────────────────────
 
@@ -195,62 +162,51 @@ export default function Dashboard() {
     }
   }, [movers, loadingMovers, forex, loadingFx, commodities, loadingComm, news, loadingNews])
 
-  // ── Drag helpers ─────────────────────────────────────────────────────────────
+  // ── HTML5 native drag-and-drop handlers ──────────────────────────────────────
 
-  function onDragStart({ active }: DragStartEvent) {
-    setActiveId(active.id as PanelId)
-    const snap = columns.map(c => [...c]) as [PanelId[], PanelId[], PanelId[]]
-    setWorking(snap)
-  }
+  const handleDragStart = useCallback((id: PanelId, e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', id)
+    setDragId(id)
+  }, [])
 
-  function onDragOver({ active, over }: DragOverEvent) {
-    if (!over) return
-    // Use ref to avoid stale closure — ref is always current
-    const current = workingRef.current
-    if (!current) return
+  const handleDragEnd = useCallback(() => {
+    setDragId(null)
+    setDropOver(null)
+  }, [])
 
-    const activePanel = active.id as PanelId
-    const overId = over.id as string
-    const isColTarget = ['col-0', 'col-1', 'col-2'].includes(overId)
+  const handleDragOver = useCallback((target: string, e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    setDropOver(target)
+  }, [])
 
-    const destColIdx = isColTarget
-      ? parseInt(overId.slice(4))
-      : current.findIndex(col => col.includes(overId as PanelId))
-    if (destColIdx < 0) return
+  const handleDrop = useCallback((target: string, e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const src = e.dataTransfer.getData('text/plain') as PanelId
+    if (!src || src === target) { setDragId(null); setDropOver(null); return }
 
-    const srcColIdx = current.findIndex(col => col.includes(activePanel))
-    if (srcColIdx < 0) return
-
-    const newCols = current.map(c => [...c]) as [PanelId[], PanelId[], PanelId[]]
-    newCols[srcColIdx] = newCols[srcColIdx].filter(id => id !== activePanel)
-
-    if (isColTarget) {
-      newCols[destColIdx] = [...newCols[destColIdx], activePanel]
-    } else {
-      const insertIdx = newCols[destColIdx].indexOf(overId as PanelId)
-      if (insertIdx < 0) {
-        newCols[destColIdx] = [...newCols[destColIdx], activePanel]
+    setColumns((() => {
+      // Remove src from wherever it is
+      const next = columns.map(col => col.filter(id => id !== src)) as [PanelId[], PanelId[], PanelId[]]
+      if (target === 'col-0' || target === 'col-1' || target === 'col-2') {
+        // Dropped onto empty column area — append
+        next[parseInt(target.slice(4))] = [...next[parseInt(target.slice(4))], src]
       } else {
-        newCols[destColIdx].splice(insertIdx, 0, activePanel)
+        // Dropped onto a sibling panel — insert before it
+        for (let i = 0; i < 3; i++) {
+          const idx = next[i].indexOf(target as PanelId)
+          if (idx >= 0) { next[i].splice(idx, 0, src); break }
+        }
       }
-    }
+      return next
+    })())
 
-    setWorking(newCols)
-  }
-
-  function onDragEnd({ over }: DragEndEvent) {
-    const current = workingRef.current
-    if (over && current) {
-      setColumns(current)
-    }
-    setActiveId(null)
-    setWorking(null)
-  }
-
-  function onDragCancel() {
-    setActiveId(null)
-    setWorking(null)
-  }
+    setDragId(null)
+    setDropOver(null)
+  }, [columns, setColumns])
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -304,38 +260,31 @@ export default function Dashboard() {
       </section>
 
       {/* Drag-and-drop grid */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDragEnd={onDragEnd}
-        onDragCancel={onDragCancel}
-      >
-        <div className="dash-grid-3">
-          {displayCols.map((panels, colIdx) => (
-            <DashColumn key={`col-${colIdx}`} colId={`col-${colIdx}`} panels={panels}>
-              {panels.map(id => (
-                <SortablePanel key={id} id={id}>
-                  {renderPanel(id)}
-                </SortablePanel>
-              ))}
-            </DashColumn>
-          ))}
-        </div>
-
-        {/* Drag overlay — shows a ghost while dragging */}
-        <DragOverlay>
-          {activeId && (
-            <div className="drag-ghost panel">
-              <div className="section-label-row">
-                <span className="section-label">{PANEL_LABELS[activeId]}</span>
-                <GripVertical size={12} style={{ color: 'var(--color-gold)', opacity: 0.6 }} />
-              </div>
-            </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+      <div className="dash-grid-3">
+        {columns.map((panels, colIdx) => (
+          <div
+            key={`col-${colIdx}`}
+            className={`dash-col${dropOver === `col-${colIdx}` ? ' col-drop-over' : ''}`}
+            onDragOver={e => handleDragOver(`col-${colIdx}`, e)}
+            onDrop={e => handleDrop(`col-${colIdx}`, e)}
+          >
+            {panels.map(id => (
+              <DraggablePanel
+                key={id}
+                id={id}
+                dragId={dragId}
+                dropOver={dropOver}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
+                {renderPanel(id)}
+              </DraggablePanel>
+            ))}
+          </div>
+        ))}
+      </div>
 
       {/* Cheat sheet */}
       <div className="cheat-wrap panel">
@@ -507,23 +456,24 @@ export default function Dashboard() {
           gap: 0.5rem;
         }
         .drag-handle {
-          background: none; border: none; cursor: grab; padding: 2px 3px;
+          cursor: grab; padding: 2px 3px;
           color: var(--color-text-muted); border-radius: 3px;
           display: flex; align-items: center; opacity: 0;
-          transition: opacity 0.15s, color 0.15s, background 0.15s;
-          flex-shrink: 0;
+          transition: opacity 0.15s, color 0.15s;
+          flex-shrink: 0; user-select: none;
         }
         .drag-handle:active { cursor: grabbing; }
-        .sortable-panel:hover .drag-handle { opacity: 1; }
-        .drag-handle:hover { color: var(--color-gold); background: var(--color-gold-subtle); opacity: 1; }
+        .draggable-panel:hover .drag-handle { opacity: 1; }
+        .drag-handle:hover { color: var(--color-gold); opacity: 1; }
 
-        /* Ghost overlay during drag */
-        .drag-ghost {
-          padding: 0.75rem 1rem;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-          opacity: 0.9;
-          cursor: grabbing;
+        /* HTML5 DnD visual feedback */
+        .draggable-panel { cursor: default; }
+        .panel-dragging { opacity: 0.4; }
+        .panel-drop-over {
+          outline: 2px solid var(--color-gold-dim);
+          outline-offset: 2px;
         }
+        .col-drop-over { background: var(--color-gold-subtle); border-radius: 4px; }
 
         .idx-strip {
           display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.25rem;
