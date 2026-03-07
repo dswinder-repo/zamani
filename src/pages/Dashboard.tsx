@@ -1,6 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { TrendingUp, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import {
+  TrendingUp, TrendingDown, ChevronDown, ChevronUp, GripVertical, RotateCcw,
+} from 'lucide-react'
+import {
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  type DragStartEvent, type DragEndEvent, type DragOverEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
 import { getFactForToday } from '../data/onThisDay'
 import { provider, getLiveForex } from '../services/api'
 import type { IndexSnapshot, ForexRate, NewsItem, Commodity, Mover } from '../services/api'
@@ -14,9 +25,85 @@ import WatchlistPanel from '../components/watchlist/WatchlistPanel'
 import NdebelePanel from '../components/patterns/NdebelePanel'
 import GlobalMarketsBar from '../components/market/GlobalMarketsBar'
 import YieldCurvePanel from '../components/market/YieldCurvePanel'
+import { useDashLayout, type PanelId } from '../stores/dashLayout'
+
+// ── Panel metadata ──────────────────────────────────────────────────────────
+
+const PANEL_LABELS: Record<PanelId, string> = {
+  'movers':      'Top Movers',
+  'watchlist':   'Watchlist',
+  'forex':       'Forex Rates',
+  'commodities': 'Commodities',
+  'yield-curve': 'Yield Curve',
+  'live-tv':     'Live Business TV',
+  'news':        'Latest News',
+  'on-this-day': 'On This Day',
+}
+
+// ── Sortable panel wrapper ───────────────────────────────────────────────────
+
+function SortablePanel({ id, children }: { id: PanelId; children: React.ReactNode }) {
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative',
+  }
+
+  return (
+    <section ref={setNodeRef} style={style} className="dash-section sortable-panel">
+      <div className="section-label-row">
+        <span className="section-label">{PANEL_LABELS[id]}</span>
+        <button
+          className="drag-handle"
+          {...listeners}
+          {...attributes}
+          aria-label={`Drag ${PANEL_LABELS[id]}`}
+          tabIndex={-1}
+        >
+          <GripVertical size={12} />
+        </button>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+// ── Column container ─────────────────────────────────────────────────────────
+
+function DashColumn({ colId, panels, children }: {
+  colId: string
+  panels: PanelId[]
+  children: React.ReactNode
+}) {
+  return (
+    <SortableContext id={colId} items={panels} strategy={verticalListSortingStrategy}>
+      <div className="dash-col">{children}</div>
+    </SortableContext>
+  )
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const [cheatOpen, setCheatOpen] = useState(true)
+  const { columns, setColumns, resetLayout } = useDashLayout()
+  const [activeId, setActiveId]   = useState<PanelId | null>(null)
+  const [working,  setWorking]    = useState<[PanelId[], PanelId[], PanelId[]] | null>(null)
+
+  // The columns we actually render — use working copy during drag for live preview
+  const displayCols = working ?? columns
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  )
+
+  // ── Data queries ────────────────────────────────────────────────────────────
+
   const { data: indices, isLoading: loadingIdx } = useQuery<IndexSnapshot[]>({
     queryKey: ['indices', 'all'],
     queryFn: () => provider.getIndices?.('all') ?? Promise.resolve([]),
@@ -50,6 +137,144 @@ export default function Dashboard() {
   const upCount   = indices?.filter(i => i.changePct >= 0).length ?? 0
   const downCount = (indices?.length ?? 0) - upCount
 
+  // ── Panel content map ────────────────────────────────────────────────────────
+
+  const renderPanel = useCallback((id: PanelId) => {
+    switch (id) {
+      case 'movers':
+        return loadingMovers
+          ? <Skeleton height={180} />
+          : ((movers?.gainers.length ?? 0) + (movers?.losers.length ?? 0)) > 0
+            ? <TopMovers gainers={movers?.gainers ?? []} losers={movers?.losers ?? []} />
+            : <DashEmpty message="Movers data not available" />
+
+      case 'watchlist':
+        return <WatchlistPanel />
+
+      case 'forex':
+        return loadingFx ? <Skeleton height={180} /> : <ForexTable rates={forex ?? []} />
+
+      case 'commodities':
+        return loadingComm
+          ? <Skeleton height={200} />
+          : (commodities?.length ?? 0) > 0
+            ? <CommoditiesPanel items={commodities ?? []} />
+            : <DashEmpty message="Commodity data unavailable" />
+
+      case 'yield-curve':
+        return <div className="panel" style={{ padding: '0.75rem' }}><YieldCurvePanel /></div>
+
+      case 'live-tv':
+        return <MediaPanel />
+
+      case 'news':
+        return loadingNews
+          ? <Skeleton height={200} />
+          : (news?.length ?? 0) > 0
+            ? <NewsFeed items={news ?? []} />
+            : <DashEmpty message="Live news feed not yet connected" />
+
+      case 'on-this-day': {
+        const fact = getFactForToday()
+        if (!fact) return null
+        return (
+          <div className="panel otd-panel">
+            <div className="otd-year">{fact.year}</div>
+            <p className="otd-text">{fact.text}</p>
+          </div>
+        )
+      }
+    }
+  }, [movers, loadingMovers, forex, loadingFx, commodities, loadingComm, news, loadingNews])
+
+  // ── Drag helpers ─────────────────────────────────────────────────────────────
+
+  function findColIdx(id: PanelId): number {
+    return displayCols.findIndex(col => col.includes(id))
+  }
+
+  function onDragStart({ active }: DragStartEvent) {
+    setActiveId(active.id as PanelId)
+    setWorking([...displayCols.map(c => [...c])] as [PanelId[], PanelId[], PanelId[]])
+  }
+
+  function onDragOver({ active, over }: DragOverEvent) {
+    if (!over || !working) return
+    const activePanel = active.id as PanelId
+    const overId = over.id as string
+
+    // Determine destination: either a panel ID or a column container ID ("col-0" etc)
+    const destColIdx = ['col-0', 'col-1', 'col-2'].includes(overId)
+      ? parseInt(overId.slice(4))
+      : working.findIndex(col => col.includes(overId as PanelId))
+
+    if (destColIdx < 0) return
+    const srcColIdx = working.findIndex(col => col.includes(activePanel))
+    if (srcColIdx < 0) return
+
+    const newCols = working.map(c => [...c]) as [PanelId[], PanelId[], PanelId[]]
+
+    // Remove from source
+    newCols[srcColIdx] = newCols[srcColIdx].filter(id => id !== activePanel)
+
+    // Insert at destination
+    if (['col-0', 'col-1', 'col-2'].includes(overId)) {
+      // Dropped onto column container — append to end
+      newCols[destColIdx] = [...newCols[destColIdx], activePanel]
+    } else {
+      // Dropped onto a sibling panel — insert at its position
+      const overPanel = overId as PanelId
+      const insertIdx = newCols[destColIdx].indexOf(overPanel)
+      if (insertIdx < 0) {
+        newCols[destColIdx] = [...newCols[destColIdx], activePanel]
+      } else {
+        newCols[destColIdx].splice(insertIdx, 0, activePanel)
+      }
+    }
+
+    setWorking(newCols)
+  }
+
+  function onDragEnd({ active, over }: DragEndEvent) {
+    const activePanel = active.id as PanelId
+
+    if (!over || !working) {
+      setActiveId(null)
+      setWorking(null)
+      return
+    }
+
+    const overId = over.id as string
+    const srcIdx  = findColIdx(activePanel)
+    const destIdx = ['col-0', 'col-1', 'col-2'].includes(overId)
+      ? parseInt(overId.slice(4))
+      : columns.findIndex(col => col.includes(overId as PanelId))
+
+    let final: [PanelId[], PanelId[], PanelId[]] = working
+
+    if (srcIdx === destIdx && !['col-0', 'col-1', 'col-2'].includes(overId)) {
+      // Reorder within same column
+      const col     = [...columns[srcIdx]]
+      const oldIdx  = col.indexOf(activePanel)
+      const newIdx  = col.indexOf(overId as PanelId)
+      if (oldIdx >= 0 && newIdx >= 0) {
+        const reordered = arrayMove(col, oldIdx, newIdx)
+        final = columns.map((c, i) => i === srcIdx ? reordered : [...c]) as [PanelId[], PanelId[], PanelId[]]
+      }
+    }
+
+    setColumns(final)
+    setActiveId(null)
+    setWorking(null)
+  }
+
+  function onDragCancel() {
+    setActiveId(null)
+    setWorking(null)
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+
   return (
     <div className="dashboard">
       {/* Page header */}
@@ -73,6 +298,13 @@ export default function Dashboard() {
               </span>
             </div>
           )}
+          <button
+            className="dash-reset-btn"
+            onClick={resetLayout}
+            title="Reset dashboard layout"
+          >
+            <RotateCcw size={11} /> Reset layout
+          </button>
           <NdebelePanel width={80} height={80} opacity={0.08} style={{ position: 'absolute', right: 0, top: 0 }} />
         </div>
       </div>
@@ -80,7 +312,7 @@ export default function Dashboard() {
       {/* Global markets bar */}
       <GlobalMarketsBar />
 
-      {/* Index cards strip */}
+      {/* Index cards strip — not draggable, always at top */}
       <section className="dash-section">
         <div className="section-label">Indices</div>
         {loadingIdx ? (
@@ -92,69 +324,38 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* Main 3-column grid */}
-      <div className="dash-grid-3">
-
-        {/* Col 1: Top Movers + Watchlist */}
-        <div className="dash-col">
-          <section className="dash-section">
-            <div className="section-label">Top Movers</div>
-            {loadingMovers
-              ? <Skeleton height={180} />
-              : ((movers?.gainers.length ?? 0) + (movers?.losers.length ?? 0)) > 0
-                ? <TopMovers gainers={movers?.gainers ?? []} losers={movers?.losers ?? []} />
-                : <DashEmpty message="Movers data not available" />}
-          </section>
-
-          <section className="dash-section">
-            <div className="section-label">Watchlist</div>
-            <WatchlistPanel />
-          </section>
-
+      {/* Drag-and-drop grid */}
+      <DndContext
+        sensors={sensors}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+        onDragCancel={onDragCancel}
+      >
+        <div className="dash-grid-3">
+          {displayCols.map((panels, colIdx) => (
+            <DashColumn key={`col-${colIdx}`} colId={`col-${colIdx}`} panels={panels}>
+              {panels.map(id => (
+                <SortablePanel key={id} id={id}>
+                  {renderPanel(id)}
+                </SortablePanel>
+              ))}
+            </DashColumn>
+          ))}
         </div>
 
-        {/* Col 2: Forex + Commodities + Yield Curve */}
-        <div className="dash-col">
-          <section className="dash-section">
-            <div className="section-label">Forex Rates</div>
-            {loadingFx ? <Skeleton height={180} /> : <ForexTable rates={forex ?? []} />}
-          </section>
-
-          <section className="dash-section">
-            <div className="section-label">Commodities</div>
-            {loadingComm
-              ? <Skeleton height={200} />
-              : (commodities?.length ?? 0) > 0
-                ? <CommoditiesPanel items={commodities ?? []} />
-                : <DashEmpty message="Commodity data unavailable" />}
-          </section>
-
-          <section className="dash-section">
-            <div className="section-label">Yield Curve</div>
-            <div className="panel" style={{ padding: '0.75rem' }}>
-              <YieldCurvePanel />
+        {/* Drag overlay — shows a ghost while dragging */}
+        <DragOverlay>
+          {activeId && (
+            <div className="drag-ghost panel">
+              <div className="section-label-row">
+                <span className="section-label">{PANEL_LABELS[activeId]}</span>
+                <GripVertical size={12} style={{ color: 'var(--color-gold)', opacity: 0.6 }} />
+              </div>
             </div>
-          </section>
-        </div>
-
-        {/* Col 3: Live TV + News + On This Day */}
-        <div className="dash-col">
-          <section className="dash-section">
-            <div className="section-label">Live Business TV</div>
-            <MediaPanel />
-          </section>
-          <section className="dash-section">
-            <div className="section-label">Latest News</div>
-            {loadingNews
-              ? <Skeleton height={200} />
-              : (news?.length ?? 0) > 0
-                ? <NewsFeed items={news ?? []} />
-                : <DashEmpty message="Live news feed not yet connected" />}
-          </section>
-          <OnThisDay />
-        </div>
-
-      </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       {/* Cheat sheet */}
       <div className="cheat-wrap panel">
@@ -233,9 +434,10 @@ export default function Dashboard() {
                 ['Monitor', 'Full-screen watchlist grid'],
                 ['Alerts', 'Price & % change triggers'],
                 ['Yield Curve', 'US Treasuries inversion detection'],
-                ['Africa Map', 'Click exchanges on the map'],
+                ['Beat Index', 'Pick stocks vs JSE Top 40'],
                 ['Macro', 'World Bank GDP, CPI, unemployment'],
                 ['Export', 'CSV download on Exchange + Portfolio'],
+                ['Drag panels', 'Rearrange dashboard via drag handles'],
               ].map(([k, d]) => (
                 <div key={k} className="cheat-row">
                   <span className="cheat-feat">{k}</span>
@@ -293,7 +495,7 @@ export default function Dashboard() {
 
         .dash-sentiment {
           display: flex; gap: 0.75rem;
-          margin-left: auto; padding-right: 1rem;
+          padding-right: 1rem;
         }
         .sentiment-item {
           display: flex; align-items: center; gap: 0.25rem;
@@ -302,10 +504,45 @@ export default function Dashboard() {
         .sentiment-item.up   { color: var(--color-up); }
         .sentiment-item.down { color: var(--color-down); }
 
+        .dash-reset-btn {
+          display: flex; align-items: center; gap: 4px;
+          margin-left: auto;
+          background: none; border: 1px solid var(--color-border);
+          border-radius: 3px; padding: 3px 8px;
+          font-size: 9px; font-weight: 600; color: var(--color-text-muted);
+          cursor: pointer; transition: all 0.15s; letter-spacing: 0.03em;
+          text-transform: uppercase; white-space: nowrap;
+        }
+        .dash-reset-btn:hover { color: var(--color-text-primary); border-color: var(--color-text-muted); }
+
         .dash-section   { display: flex; flex-direction: column; gap: 0.5rem; }
         .section-label  {
           font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
           color: var(--color-text-muted); font-weight: 600;
+        }
+
+        /* Drag handle row */
+        .section-label-row {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 0.5rem;
+        }
+        .drag-handle {
+          background: none; border: none; cursor: grab; padding: 2px 3px;
+          color: var(--color-text-muted); border-radius: 3px;
+          display: flex; align-items: center; opacity: 0;
+          transition: opacity 0.15s, color 0.15s, background 0.15s;
+          flex-shrink: 0;
+        }
+        .drag-handle:active { cursor: grabbing; }
+        .sortable-panel:hover .drag-handle { opacity: 1; }
+        .drag-handle:hover { color: var(--color-gold); background: var(--color-gold-subtle); opacity: 1; }
+
+        /* Ghost overlay during drag */
+        .drag-ghost {
+          padding: 0.75rem 1rem;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+          opacity: 0.9;
+          cursor: grabbing;
         }
 
         .idx-strip {
@@ -325,6 +562,7 @@ export default function Dashboard() {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
+          min-height: 80px;
         }
 
         @media (max-width: 1100px) {
@@ -430,20 +668,6 @@ export default function Dashboard() {
         }
       `}</style>
     </div>
-  )
-}
-
-function OnThisDay() {
-  const fact = getFactForToday()
-  if (!fact) return null
-  return (
-    <section className="dash-section">
-      <div className="section-label">On This Day in African Markets</div>
-      <div className="panel otd-panel">
-        <div className="otd-year">{fact.year}</div>
-        <p className="otd-text">{fact.text}</p>
-      </div>
-    </section>
   )
 }
 
