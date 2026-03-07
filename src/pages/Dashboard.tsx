@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   TrendingUp, TrendingDown, ChevronDown, ChevronUp, GripVertical, RotateCcw,
 } from 'lucide-react'
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  closestCenter, useDroppable,
   type DragStartEvent, type DragEndEvent, type DragOverEvent,
 } from '@dnd-kit/core'
 import {
-  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+  SortableContext, useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
@@ -80,9 +81,10 @@ function DashColumn({ colId, panels, children }: {
   panels: PanelId[]
   children: React.ReactNode
 }) {
+  const { setNodeRef } = useDroppable({ id: colId })
   return (
     <SortableContext id={colId} items={panels} strategy={verticalListSortingStrategy}>
-      <div className="dash-col">{children}</div>
+      <div ref={setNodeRef} className="dash-col">{children}</div>
     </SortableContext>
   )
 }
@@ -92,8 +94,14 @@ function DashColumn({ colId, panels, children }: {
 export default function Dashboard() {
   const [cheatOpen, setCheatOpen] = useState(true)
   const { columns, setColumns, resetLayout } = useDashLayout()
-  const [activeId, setActiveId]   = useState<PanelId | null>(null)
-  const [working,  setWorking]    = useState<[PanelId[], PanelId[], PanelId[]] | null>(null)
+  const [activeId, setActiveId] = useState<PanelId | null>(null)
+  const [working,  setWorkingState] = useState<[PanelId[], PanelId[], PanelId[]] | null>(null)
+  // Ref keeps onDragOver from using stale closure state
+  const workingRef = useRef<[PanelId[], PanelId[], PanelId[]] | null>(null)
+  function setWorking(v: [PanelId[], PanelId[], PanelId[]] | null) {
+    workingRef.current = v
+    setWorkingState(v)
+  }
 
   // The columns we actually render — use working copy during drag for live preview
   const displayCols = working ?? columns
@@ -189,42 +197,37 @@ export default function Dashboard() {
 
   // ── Drag helpers ─────────────────────────────────────────────────────────────
 
-  function findColIdx(id: PanelId): number {
-    return displayCols.findIndex(col => col.includes(id))
-  }
-
   function onDragStart({ active }: DragStartEvent) {
     setActiveId(active.id as PanelId)
-    setWorking([...displayCols.map(c => [...c])] as [PanelId[], PanelId[], PanelId[]])
+    const snap = columns.map(c => [...c]) as [PanelId[], PanelId[], PanelId[]]
+    setWorking(snap)
   }
 
   function onDragOver({ active, over }: DragOverEvent) {
-    if (!over || !working) return
+    if (!over) return
+    // Use ref to avoid stale closure — ref is always current
+    const current = workingRef.current
+    if (!current) return
+
     const activePanel = active.id as PanelId
     const overId = over.id as string
+    const isColTarget = ['col-0', 'col-1', 'col-2'].includes(overId)
 
-    // Determine destination: either a panel ID or a column container ID ("col-0" etc)
-    const destColIdx = ['col-0', 'col-1', 'col-2'].includes(overId)
+    const destColIdx = isColTarget
       ? parseInt(overId.slice(4))
-      : working.findIndex(col => col.includes(overId as PanelId))
-
+      : current.findIndex(col => col.includes(overId as PanelId))
     if (destColIdx < 0) return
-    const srcColIdx = working.findIndex(col => col.includes(activePanel))
+
+    const srcColIdx = current.findIndex(col => col.includes(activePanel))
     if (srcColIdx < 0) return
 
-    const newCols = working.map(c => [...c]) as [PanelId[], PanelId[], PanelId[]]
-
-    // Remove from source
+    const newCols = current.map(c => [...c]) as [PanelId[], PanelId[], PanelId[]]
     newCols[srcColIdx] = newCols[srcColIdx].filter(id => id !== activePanel)
 
-    // Insert at destination
-    if (['col-0', 'col-1', 'col-2'].includes(overId)) {
-      // Dropped onto column container — append to end
+    if (isColTarget) {
       newCols[destColIdx] = [...newCols[destColIdx], activePanel]
     } else {
-      // Dropped onto a sibling panel — insert at its position
-      const overPanel = overId as PanelId
-      const insertIdx = newCols[destColIdx].indexOf(overPanel)
+      const insertIdx = newCols[destColIdx].indexOf(overId as PanelId)
       if (insertIdx < 0) {
         newCols[destColIdx] = [...newCols[destColIdx], activePanel]
       } else {
@@ -235,35 +238,11 @@ export default function Dashboard() {
     setWorking(newCols)
   }
 
-  function onDragEnd({ active, over }: DragEndEvent) {
-    const activePanel = active.id as PanelId
-
-    if (!over || !working) {
-      setActiveId(null)
-      setWorking(null)
-      return
+  function onDragEnd({ over }: DragEndEvent) {
+    const current = workingRef.current
+    if (over && current) {
+      setColumns(current)
     }
-
-    const overId = over.id as string
-    const srcIdx  = findColIdx(activePanel)
-    const destIdx = ['col-0', 'col-1', 'col-2'].includes(overId)
-      ? parseInt(overId.slice(4))
-      : columns.findIndex(col => col.includes(overId as PanelId))
-
-    let final: [PanelId[], PanelId[], PanelId[]] = working
-
-    if (srcIdx === destIdx && !['col-0', 'col-1', 'col-2'].includes(overId)) {
-      // Reorder within same column
-      const col     = [...columns[srcIdx]]
-      const oldIdx  = col.indexOf(activePanel)
-      const newIdx  = col.indexOf(overId as PanelId)
-      if (oldIdx >= 0 && newIdx >= 0) {
-        const reordered = arrayMove(col, oldIdx, newIdx)
-        final = columns.map((c, i) => i === srcIdx ? reordered : [...c]) as [PanelId[], PanelId[], PanelId[]]
-      }
-    }
-
-    setColumns(final)
     setActiveId(null)
     setWorking(null)
   }
@@ -327,6 +306,7 @@ export default function Dashboard() {
       {/* Drag-and-drop grid */}
       <DndContext
         sensors={sensors}
+        collisionDetection={closestCenter}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
