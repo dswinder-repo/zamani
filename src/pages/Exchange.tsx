@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Bookmark, BookmarkCheck, X, Download } from 'lucide-react'
-import { provider, getUSEQuotes, getUSEIndices, getUSEMovers, YAHOO_SUPPORTED_EXCHANGES } from '../services/api'
+import { provider, getUSEQuotes, getUSEIndices, getUSEMovers, YAHOO_SUPPORTED_EXCHANGES, EODHD_SUPPORTED_EXCHANGES, eodhdProvider } from '../services/api'
 import { downloadCSV } from '../utils/csvExport'
 import type { IndexSnapshot, Quote } from '../services/api'
 import IndexCard from '../components/market/IndexCard'
@@ -41,28 +41,38 @@ export default function Exchange() {
   const { presets, savePreset, deletePreset } = useScreener()
   const exchangePresets = presets.filter(p => p.exchange === id)
 
-  const isUSE  = id === 'use'
-  const isLive = YAHOO_SUPPORTED_EXCHANGES.includes(id)
+  const isUSE   = id === 'use'
+  const isEODHD = EODHD_SUPPORTED_EXCHANGES.includes(id)
+  const isLive  = YAHOO_SUPPORTED_EXCHANGES.includes(id) || isEODHD
+
+  // EOD data doesn't change more than once per day; poll hourly at most
+  const staleMs = isEODHD ? 3_600_000 : 60_000
 
   const { data: indices, isLoading: indicesLoading } = useQuery<IndexSnapshot[]>({
     queryKey: ['indices', id],
-    queryFn:  isUSE ? () => getUSEIndices() : () => provider.getIndices?.(id) ?? Promise.resolve([]),
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    queryFn:  isUSE    ? () => getUSEIndices()
+            : isEODHD  ? () => eodhdProvider.getIndices!(id)
+            :             () => provider.getIndices?.(id) ?? Promise.resolve([]),
+    staleTime: staleMs,
+    refetchInterval: staleMs,
   })
 
   const { data: movers, isLoading: moversLoading } = useQuery({
     queryKey: ['movers', id],
-    queryFn:  isUSE ? () => getUSEMovers() : () => provider.getTopMovers?.(id) ?? Promise.resolve({ gainers: [], losers: [] }),
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    queryFn:  isUSE    ? () => getUSEMovers()
+            : isEODHD  ? () => eodhdProvider.getTopMovers!(id)
+            :             () => provider.getTopMovers?.(id) ?? Promise.resolve({ gainers: [], losers: [] }),
+    staleTime: staleMs,
+    refetchInterval: staleMs,
   })
 
   const { data: stocks, isLoading: stocksLoading } = useQuery<Quote[]>({
     queryKey: ['stocks', id],
-    queryFn:  isUSE ? () => getUSEQuotes() : () => provider.getExchangeStocks?.(id) ?? Promise.resolve([]),
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    queryFn:  isUSE    ? () => getUSEQuotes()
+            : isEODHD  ? () => eodhdProvider.getExchangeStocks!(id)
+            :             () => provider.getExchangeStocks?.(id) ?? Promise.resolve([]),
+    staleTime: staleMs,
+    refetchInterval: staleMs,
   })
 
   // Sectors present on this exchange
@@ -275,8 +285,11 @@ export default function Exchange() {
 
           <section className="ex-stocks-col">
             <div className="ex-stocks-header">
-              <div className="section-label">
-                {activeSector ? `${activeSector} Securities` : 'All Securities'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div className="section-label">
+                  {activeSector ? `${activeSector} Securities` : 'All Securities'}
+                </div>
+                {isEODHD && <span className="ex-eod-badge">End-of-day</span>}
               </div>
               <div className="ex-screener-tabs">
                 {(['all', 'gainers', 'losers', 'active'] as const).map(f => (
@@ -494,6 +507,14 @@ export default function Exchange() {
           .ex-sector-filters { gap: 3px; }
           .ex-sector-btn { padding: 2px 7px; font-size: 9px; }
           .hm-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+        }
+
+        /* EOD data freshness badge */
+        .ex-eod-badge {
+          font-size: 9px; font-weight: 600; letter-spacing: 0.05em;
+          text-transform: uppercase; padding: 1px 5px; border-radius: 3px;
+          background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+          color: var(--color-gold); border: 1px solid var(--color-gold-dim);
         }
 
         /* Unavailable exchange panel */

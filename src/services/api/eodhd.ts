@@ -12,16 +12,25 @@ import type { MarketProvider, Quote, OHLCV, IndexSnapshot, ForexRate, NewsItem, 
 const BASE = 'https://eodhd.com/api'
 const KEY  = import.meta.env.VITE_EODHD_KEY as string
 
+// Exchange IDs served by EODHD (non-JSE, non-USE African exchanges)
+export const EODHD_SUPPORTED_EXCHANGES: string[] = ['ngx', 'nse', 'gse', 'zse', 'bse', 'luse']
+
 // EODHD exchange codes
 const EXCHANGE_MAP: Record<string, string> = {
   jse:  'JSE',
   ngx:  'NGX',
-  nse:  'NSE',    // Nairobi — EODHD uses "NSE" (also used for NSE India — check docs)
+  nse:  'NSE',
   gse:  'GSE',
   brvm: 'BRVM',
   zse:  'ZSE',
   bse:  'BSE',
   luse: 'LUSE',
+}
+
+// Default currency per EODHD exchange code
+const EXCHANGE_CURRENCY: Record<string, string> = {
+  JSE: 'ZAR', NGX: 'NGN', NSE: 'KES', GSE: 'GHS',
+  BRVM: 'XOF', ZSE: 'ZWL', BSE: 'BWP', LUSE: 'ZMW',
 }
 
 // Index tickers per exchange (EODHD format)
@@ -186,6 +195,27 @@ export const eodhdProvider: MarketProvider = {
     return results
       .filter((r): r is PromiseFulfilledResult<ReturnType<typeof Object.assign>> => r.status === 'fulfilled')
       .map(r => r.value)
+  },
+
+  async getExchangeStocks(exchange) {
+    const ex = EXCHANGE_MAP[exchange.toLowerCase()] ?? exchange.toUpperCase()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await get<any[]>(`/eod-bulk-last-day/${ex}`)
+    if (!Array.isArray(data)) return []
+
+    return data
+      .map((d): Quote => ({
+        symbol:    d.code,
+        name:      d.name ?? d.code,
+        price:     parseFloat(d.close ?? d.adjusted_close ?? 0),
+        change:    parseFloat(d.change ?? 0),
+        changePct: parseFloat(d.change_p ?? 0),
+        volume:    d.volume ?? undefined,
+        currency:  EXCHANGE_CURRENCY[ex] ?? 'USD',
+        exchange:  ex,
+        timestamp: d.date ? new Date(d.date).getTime() : Date.now(),
+      }))
+      .filter(q => q.price > 0)
   },
 
   async getTopMovers(exchange = 'jse') {
