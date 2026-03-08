@@ -29,6 +29,7 @@ const EXCHANGE_INFO: Record<string, {
   bse:  { name: 'Botswana Stock Exchange',     country: 'Botswana',     flag: '🇧🇼', currency: 'BWP', accentVar: '--color-bse',  founded: '1989', mic: 'XBOT' },
   luse: { name: 'Lusaka Securities Exchange',  country: 'Zambia',       flag: '🇿🇲', currency: 'ZMW', accentVar: '--color-luse', founded: '1994', mic: 'XLUS' },
   use:  { name: 'Uganda Securities Exchange',  country: 'Uganda',       flag: '🇺🇬', currency: 'UGX', accentVar: '--color-use',  founded: '1997', mic: 'XUGA' },
+  egx:  { name: 'Egyptian Exchange',           country: 'Egypt',        flag: '🇪🇬', currency: 'EGP', accentVar: '--color-egx',  founded: '1883', mic: 'XCAI' },
 }
 
 export default function Exchange() {
@@ -45,8 +46,8 @@ export default function Exchange() {
   const isEODHD = EODHD_SUPPORTED_EXCHANGES.includes(id)
   const isLive  = YAHOO_SUPPORTED_EXCHANGES.includes(id) || isEODHD
 
-  // EOD data doesn't change more than once per day; poll hourly at most
-  const staleMs = isEODHD ? 3_600_000 : 60_000
+  // EOD data updates once per day after close — no point polling more than twice daily
+  const staleMs = isEODHD ? 43_200_000 : 60_000
 
   const { data: indices, isLoading: indicesLoading } = useQuery<IndexSnapshot[]>({
     queryKey: ['indices', id],

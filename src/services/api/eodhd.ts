@@ -13,7 +13,7 @@ const BASE = 'https://eodhd.com/api'
 const KEY  = import.meta.env.VITE_EODHD_KEY as string
 
 // Exchange IDs served by EODHD (non-JSE, non-USE African exchanges)
-export const EODHD_SUPPORTED_EXCHANGES: string[] = ['ngx', 'nse', 'gse', 'zse', 'bse', 'luse']
+export const EODHD_SUPPORTED_EXCHANGES: string[] = ['ngx', 'nse', 'gse', 'brvm', 'zse', 'bse', 'luse', 'egx']
 
 // EODHD exchange codes
 const EXCHANGE_MAP: Record<string, string> = {
@@ -25,12 +25,13 @@ const EXCHANGE_MAP: Record<string, string> = {
   zse:  'ZSE',
   bse:  'BSE',
   luse: 'LUSE',
+  egx:  'EGX',
 }
 
 // Default currency per EODHD exchange code
 const EXCHANGE_CURRENCY: Record<string, string> = {
   JSE: 'ZAR', NGX: 'NGN', NSE: 'KES', GSE: 'GHS',
-  BRVM: 'XOF', ZSE: 'ZWL', BSE: 'BWP', LUSE: 'ZMW',
+  BRVM: 'XOF', ZSE: 'ZWL', BSE: 'BWP', LUSE: 'ZMW', EGX: 'EGP',
 }
 
 // Index tickers per exchange (EODHD format)
@@ -41,6 +42,7 @@ const INDEX_SYMBOLS: Record<string, { symbol: string; name: string; currency: st
   NSE:  [{ symbol: 'NSE20.INDX', name: 'NSE 20 Share',      currency: 'KES' }],
   GSE:  [{ symbol: 'GSECI.INDX', name: 'GSE Composite',     currency: 'GHS' }],
   BRVM: [{ symbol: 'BRVMCI.INDX', name: 'BRVM Composite',  currency: 'XOF' }],
+  EGX:  [{ symbol: 'EGX30.INDX', name: 'EGX 30',          currency: 'EGP' }],
 }
 
 async function get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
