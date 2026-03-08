@@ -18,28 +18,28 @@ export const EODHD_SUPPORTED_EXCHANGES: string[] = ['ngx', 'nse', 'gse', 'brvm',
 // EODHD exchange codes
 const EXCHANGE_MAP: Record<string, string> = {
   jse:  'JSE',
-  ngx:  'NGX',
-  nse:  'NSE',
+  ngx:  'XNSA',   // Nigerian Exchange Group
+  nse:  'XNAI',   // Nairobi Securities Exchange (NSE = India in EODHD)
   gse:  'GSE',
   brvm: 'BRVM',
   zse:  'ZSE',
-  bse:  'BSE',
+  bse:  'XBOT',   // Botswana Stock Exchange (BSE = Bombay in EODHD)
   luse: 'LUSE',
   egx:  'EGX',
 }
 
 // Default currency per EODHD exchange code
 const EXCHANGE_CURRENCY: Record<string, string> = {
-  JSE: 'ZAR', NGX: 'NGN', NSE: 'KES', GSE: 'GHS',
-  BRVM: 'XOF', ZSE: 'ZWL', BSE: 'BWP', LUSE: 'ZMW', EGX: 'EGP',
+  JSE: 'ZAR', XNSA: 'NGN', XNAI: 'KES', GSE: 'GHS',
+  BRVM: 'XOF', ZSE: 'ZWL', XBOT: 'BWP', LUSE: 'ZMW', EGX: 'EGP',
 }
 
 // Index tickers per exchange (EODHD format)
 const INDEX_SYMBOLS: Record<string, { symbol: string; name: string; currency: string }[]> = {
   JSE:  [{ symbol: 'J203.INDX',  name: 'JSE All Share',     currency: 'ZAR' },
          { symbol: 'J200.INDX',  name: 'JSE Top 40',        currency: 'ZAR' }],
-  NGX:  [{ symbol: 'NGXASI.INDX', name: 'NGX All Share',    currency: 'NGN' }],
-  NSE:  [{ symbol: 'NSE20.INDX', name: 'NSE 20 Share',      currency: 'KES' }],
+  XNSA: [{ symbol: 'NGXASI.INDX', name: 'NGX All Share',    currency: 'NGN' }],
+  XNAI: [{ symbol: 'NSE20.INDX', name: 'NSE 20 Share',      currency: 'KES' }],
   GSE:  [{ symbol: 'GSECI.INDX', name: 'GSE Composite',     currency: 'GHS' }],
   BRVM: [{ symbol: 'BRVMCI.INDX', name: 'BRVM Composite',  currency: 'XOF' }],
   EGX:  [{ symbol: 'EGX30.INDX', name: 'EGX 30',          currency: 'EGP' }],
